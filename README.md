@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # securebubble_pro
 
 AI Based Multi Platform Phishing Detector
@@ -15,3 +16,6 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+# SecureBubble-AI
+>>>>>>> f00bd19ba08871a47b077a4591c09a9c6a1755b3

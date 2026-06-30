@@ -12,19 +12,19 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val channel = "securebubble/native"
+    private val CHANNEL = "securebubble/native"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
-            channel
+            CHANNEL
         ).setMethodCallHandler { call, result ->
 
             when (call.method) {
 
-                // Native Test Toast
+                // Native Test
                 "showToast" -> {
 
                     Toast.makeText(
@@ -63,11 +63,37 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
-                // Bubble Service Start
+                // Start Floating Bubble
                 "startBubbleService" -> {
 
                     val intent = Intent(this, BubbleService::class.java)
-                    startService(intent)
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+
+                    Toast.makeText(
+                        this,
+                        "Starting Bubble...",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    result.success(true)
+                }
+
+                // Stop Bubble
+                "stopBubbleService" -> {
+
+                    val intent = Intent(this, BubbleService::class.java)
+                    stopService(intent)
+
+                    Toast.makeText(
+                        this,
+                        "Bubble Stopped",
+                        Toast.LENGTH_SHORT
+                    ).show()
 
                     result.success(true)
                 }

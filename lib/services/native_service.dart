@@ -30,4 +30,13 @@ class NativeService {
       print("Bubble Service Error: $e");
     }
   }
+
+  // Stop Bubble Service
+  static Future<void> stopBubbleService() async {
+    try {
+      await _channel.invokeMethod('stopBubbleService');
+    } catch (e) {
+      print("Stop Bubble Error: $e");
+    }
+  }
 }
