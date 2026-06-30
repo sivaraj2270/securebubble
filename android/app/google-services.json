@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "622754893374",
+    "project_id": "bubble-ai-269f4",
+    "storage_bucket": "bubble-ai-269f4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:622754893374:android:9093651d174d2bfafbcb6f",
+        "android_client_info": {
+          "package_name": "com.sivaraj.securebubble_pro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC95VklybgOWUhNj4xS4nb-Oayf07E07_Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
