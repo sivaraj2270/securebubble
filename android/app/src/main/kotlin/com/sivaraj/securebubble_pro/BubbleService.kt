@@ -7,6 +7,7 @@ import android.os.IBinder
 class BubbleService : Service() {
 
     private lateinit var notificationHelper: NotificationHelper
+    private lateinit var bubbleManager: BubbleManager
 
     override fun onCreate() {
         super.onCreate()
@@ -20,7 +21,8 @@ class BubbleService : Service() {
             notificationHelper.createNotification()
         )
 
-        // Bubble உருவாக்கும் Code அடுத்த Step-ல் வரும்
+        bubbleManager = BubbleManager(this)
+        bubbleManager.showBubble()
     }
 
     override fun onStartCommand(
@@ -28,14 +30,13 @@ class BubbleService : Service() {
         flags: Int,
         startId: Int
     ): Int {
-
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
 
-        // Bubble Remove Code அடுத்த Step-ல் வரும்
+        bubbleManager.removeBubble()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
