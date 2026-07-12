@@ -1,11 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 
 import '../services/auth_service.dart';
-import '../services/native_service.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
+
+  static const platform = MethodChannel("securebubble/service");
+
+  Future<void> startBubble(BuildContext context) async {
+    try {
+      await platform.invokeMethod("startBubble");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Bubble Started"),
+        ),
+      );
+    } catch (e) {
+      print("Start Error: $e");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error : $e"),
+        ),
+      );
+    }
+  }
+
+  Future<void> stopBubble(BuildContext context) async {
+    try {
+      await platform.invokeMethod("stopBubble");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Bubble Stopped"),
+        ),
+      );
+    } catch (e) {
+      print("Stop Error: $e");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error : $e"),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +64,9 @@ class DashboardScreen extends StatelessWidget {
         centerTitle: true,
         title: const Text(
           "SecureBubble AI",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: [
           IconButton(
@@ -36,6 +80,7 @@ class DashboardScreen extends StatelessWidget {
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
+
         child: Column(
           children: [
 
@@ -66,10 +111,6 @@ class DashboardScreen extends StatelessWidget {
 
             Card(
               color: const Color(0xFF161B22),
-              elevation: 8,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
               child: ListTile(
                 leading: const Icon(
                   Icons.person,
@@ -98,13 +139,9 @@ class DashboardScreen extends StatelessWidget {
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
               ),
-              onPressed: () async {
-                await NativeService.requestOverlayPermission();
-                await NativeService.startBubbleService();
+              onPressed: () {
+                startBubble(context);
               },
               icon: const Icon(Icons.bubble_chart),
               label: const Text("Enable Bubble"),
@@ -114,90 +151,16 @@ class DashboardScreen extends StatelessWidget {
 
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
               ),
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Link Scanner Coming Soon"),
-                  ),
-                );
+                stopBubble(context);
               },
-              icon: const Icon(Icons.link),
-              label: const Text("Scan Link"),
+              icon: const Icon(Icons.close),
+              label: const Text("Disable Bubble"),
             ),
-
-            const SizedBox(height: 15),
-
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("QR Scanner Coming Soon"),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text("Scan QR"),
-            ),
-
-            const SizedBox(height: 15),
-
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Email Scanner Coming Soon"),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.email),
-              label: const Text("Email Scanner"),
-            ),
-
-            const SizedBox(height: 15),
-
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("History Coming Soon"),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.history),
-              label: const Text("Scan History"),
-            ),
-
           ],
         ),
       ),

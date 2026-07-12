@@ -6,20 +6,10 @@ import android.os.IBinder
 
 class BubbleService : Service() {
 
-    private lateinit var notificationHelper: NotificationHelper
     private lateinit var bubbleManager: BubbleManager
 
     override fun onCreate() {
         super.onCreate()
-
-        notificationHelper = NotificationHelper(this)
-
-        notificationHelper.createNotificationChannel()
-
-        startForeground(
-            NotificationHelper.NOTIFICATION_ID,
-            notificationHelper.createNotification()
-        )
 
         bubbleManager = BubbleManager(this)
         bubbleManager.showBubble()
@@ -34,12 +24,9 @@ class BubbleService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
-
         bubbleManager.removeBubble()
+        super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 }

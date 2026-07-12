@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="70dp"
-    android:layout_height="70dp"
-    android:background="@android:color/transparent">
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="80dp"
+    android:layout_height="80dp">
 
     <ImageView
         android:id="@+id/bubbleIcon"
-        android:layout_width="70dp"
-        android:layout_height="70dp"
-        android:layout_gravity="center"
-        android:src="@android:drawable/ic_dialog_info"
-        android:background="@android:drawable/btn_default"
-        android:scaleType="centerInside" />
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:src="@drawable/bubble"
+        android:scaleType="fitCenter"/>
 
 </FrameLayout>
