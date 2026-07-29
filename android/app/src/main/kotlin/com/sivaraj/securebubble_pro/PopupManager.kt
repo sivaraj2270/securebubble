@@ -10,6 +10,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.TextView
 
 class PopupManager(private val context: Context) {
@@ -48,37 +49,70 @@ class PopupManager(private val context: Context) {
         val txtStatus =
             popupView!!.findViewById<TextView>(R.id.txtStatus)
 
-        Handler(Looper.getMainLooper()).postDelayed({
+        val progress =
+            popupView!!.findViewById<ProgressBar>(R.id.progress)
+
+        val btnClose =
+            popupView!!.findViewById<Button>(R.id.btnClose)
+
+        btnClose.visibility = View.GONE
+
+        val handler = Handler(Looper.getMainLooper())
+
+        var dot = 0
+
+        val animation = object : Runnable {
+
+            override fun run() {
+
+                dot++
+
+                if (dot > 3) dot = 1
+
+                txtStatus.text =
+                    "AI Scanning" + ".".repeat(dot)
+
+                handler.postDelayed(this, 500)
+            }
+        }
+
+        handler.post(animation)
+
+        handler.postDelayed({
+
+            handler.removeCallbacks(animation)
+
+            progress.visibility = View.GONE
 
             txtStatus.text = """
-        AI Screen Analysis
+🛡 AI Scan Completed
 
-        ✔ Screenshot Captured
+✔ Screenshot Captured
 
-        ✔ Detecting Links...
+✔ Link Detection
 
-        ✔ Detecting QR Codes...
+✔ QR Detection
 
-        ✔ Running AI Analysis...
+✔ AI Analysis
 
-        ✅ SAFE
+✅ SAFE
 
-        No Phishing Link Found
-        """.trimIndent()
+No Phishing Link Found
+            """.trimIndent()
 
-        },3000)
+            btnClose.visibility = View.VISIBLE
 
-        popupView!!
-            .findViewById<Button>(R.id.btnClose)
-            .setOnClickListener {
+        }, 3000)
 
-                removePopup()
+        btnClose.setOnClickListener {
 
-            }
+            removePopup()
+
+        }
 
     }
 
-    fun removePopup(){
+    fun removePopup() {
 
         popupView?.let {
 

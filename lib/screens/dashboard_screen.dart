@@ -19,8 +19,6 @@ class DashboardScreen extends StatelessWidget {
         ),
       );
     } catch (e) {
-      print("Start Error: $e");
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Error : $e"),
@@ -39,8 +37,6 @@ class DashboardScreen extends StatelessWidget {
         ),
       );
     } catch (e) {
-      print("Stop Error: $e");
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Error : $e"),
@@ -140,8 +136,8 @@ class DashboardScreen extends StatelessWidget {
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 55),
               ),
-              onPressed: () {
-                startBubble(context);
+              onPressed: () async {
+                await startBubble(context);
               },
               icon: const Icon(Icons.bubble_chart),
               label: const Text("Enable Bubble"),
@@ -155,8 +151,8 @@ class DashboardScreen extends StatelessWidget {
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 55),
               ),
-              onPressed: () {
-                stopBubble(context);
+              onPressed: () async {
+                await stopBubble(context);
               },
               icon: const Icon(Icons.close),
               label: const Text("Disable Bubble"),
