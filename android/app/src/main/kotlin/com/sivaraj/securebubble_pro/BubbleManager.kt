@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -15,6 +17,7 @@ import kotlin.math.abs
 class BubbleManager(private val context: Context) {
 
     private lateinit var popupManager: PopupManager
+    private val ocrManager = OCRManager()
 
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -111,11 +114,37 @@ class BubbleManager(private val context: Context) {
                         val dx = abs(event.rawX - initialTouchX)
                         val dy = abs(event.rawY - initialTouchY)
 
-                        // Click
+                        // Single tap click on floating bubble
                         if (dx < 15 && dy < 15) {
+                            val threatScanner = RealThreatScanner()
+                            val linkDetector = LinkDetector()
 
-                            popupManager.showScannerPopup()
-
+                            popupManager.showScanningProgress {
+                                val accService = AccessibilityService.instance
+                                if (accService != null) {
+                                    accService.captureScreen { bitmap ->
+                                        if (bitmap != null) {
+                                            ocrManager.readText(
+                                                bitmap,
+                                                onSuccess = { ocrText ->
+                                                    val combined = "$ocrText ${ScreenTextHolder.text}".trim()
+                                                    runScanThread(combined, linkDetector, threatScanner)
+                                                },
+                                                onFailure = {
+                                                    val fallbackText = ScreenTextHolder.text
+                                                    runScanThread(fallbackText, linkDetector, threatScanner)
+                                                }
+                                            )
+                                        } else {
+                                            val fallbackText = ScreenTextHolder.text
+                                            runScanThread(fallbackText, linkDetector, threatScanner)
+                                        }
+                                    }
+                                } else {
+                                    val fallbackText = ScreenTextHolder.text
+                                    runScanThread(fallbackText, linkDetector, threatScanner)
+                                }
+                            }
                         }
 
                         snapToEdge()
@@ -129,6 +158,17 @@ class BubbleManager(private val context: Context) {
 
         })
 
+    }
+
+    private fun runScanThread(rawText: String, linkDetector: LinkDetector, threatScanner: RealThreatScanner) {
+        Thread {
+            val links = linkDetector.extractLinks(rawText)
+            val report = threatScanner.performRealScan(rawText, links)
+
+            Handler(Looper.getMainLooper()).post {
+                popupManager.showThreatReport(report)
+            }
+        }.start()
     }
 
     private fun snapToEdge() {

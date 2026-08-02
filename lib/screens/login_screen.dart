@@ -13,17 +13,19 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-
   final AuthService authService = AuthService();
-
   bool isLoading = false;
+  bool obscurePassword = true;
 
   Future<void> login() async {
-    if (emailController.text.trim().isEmpty ||
-        passwordController.text.trim().isEmpty) {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Please enter email and password"),
+          backgroundColor: Colors.redAccent,
         ),
       );
       return;
@@ -35,8 +37,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await authService.loginUser(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+        email: email,
+        password: password,
       );
 
       if (!mounted) return;
@@ -52,15 +54,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
+          content: Text(e.toString().replaceAll("Exception: ", "")),
+          backgroundColor: Colors.redAccent,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
+  }
 
-    setState(() {
-      isLoading = false;
-    });
+  void fillQuickTest() {
+    emailController.text = "siva3497kinglanden@gmail.com";
+    passwordController.text = "123456";
+    login();
   }
 
   @override
@@ -73,107 +83,203 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              const Icon(
-                Icons.security,
-                color: Colors.green,
-                size: 100,
-              ),
-
-              const SizedBox(height: 20),
-
-              const Text(
-                "SecureBubble AI",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              const Text(
-                "AI-Based Multi Platform Phishing Detector",
-                style: TextStyle(
-                  color: Colors.white70,
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  hintText: "Email",
-                  prefixIcon: const Icon(Icons.email),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: "Password",
-                  prefixIcon: const Icon(Icons.lock),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : login,
-                  child: isLoading
-                      ? const CircularProgressIndicator(
-                    color: Colors.white,
-                  )
-                      : const Text(
-                    "LOGIN",
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const RegisterScreen(),
+      backgroundColor: const Color(0xFF0A0D14),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Glowing Shield Logo
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141C2B),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF00E676).withOpacity(0.4), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00E676).withOpacity(0.2),
+                          blurRadius: 25,
+                          spreadRadius: 3,
+                        ),
+                      ],
                     ),
-                  );
-                },
-                child: const Text(
-                  "Create New Account",
+                    child: const Icon(
+                      Icons.shield_rounded,
+                      color: Color(0xFF00E676),
+                      size: 55,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                const Text(
+                  "SECUREBUBBLE AI",
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
                   ),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 6),
+
+                const Text(
+                  "AI-Based Multi-Platform Phishing & Scam Detector",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF7A8B9E),
+                    fontSize: 13,
+                  ),
+                ),
+
+                const SizedBox(height: 36),
+
+                // Email Input
+                TextField(
+                  controller: emailController,
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: "Email Address",
+                    labelStyle: const TextStyle(color: Color(0xFF7A8B9E)),
+                    prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF7A8B9E)),
+                    filled: true,
+                    fillColor: const Color(0xFF141C2B),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFF212E46)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFF00E676), width: 1.5),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Password Input
+                TextField(
+                  controller: passwordController,
+                  style: const TextStyle(color: Colors.white),
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: "Password",
+                    labelStyle: const TextStyle(color: Color(0xFF7A8B9E)),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF7A8B9E)),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                        color: const Color(0xFF7A8B9E),
+                      ),
+                      onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF141C2B),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFF212E46)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFF00E676), width: 1.5),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Login Button
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00E676),
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 4,
+                    ),
+                    onPressed: isLoading ? null : login,
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
+                          )
+                        : const Text(
+                            "LOGIN TO PROTECT",
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Quick Test Button
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF00E676),
+                    side: const BorderSide(color: Color(0xFF00E676), width: 1.2),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: isLoading ? null : fillQuickTest,
+                  child: const Text(
+                    "Quick Test Access",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Don't have an account? ",
+                      style: TextStyle(color: Color(0xFF7A8B9E)),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        "Register",
+                        style: TextStyle(
+                          color: Color(0xFF00E676),
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

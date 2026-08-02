@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "com.sivaraj.securebubble_pro"
     compileSdk = 35
+    buildToolsVersion = "36.0.0"
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
