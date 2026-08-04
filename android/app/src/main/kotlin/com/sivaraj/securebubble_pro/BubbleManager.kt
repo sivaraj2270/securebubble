@@ -2,10 +2,13 @@ package com.sivaraj.securebubble_pro
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -119,32 +122,58 @@ class BubbleManager(private val context: Context) {
                             val threatScanner = RealThreatScanner()
                             val linkDetector = LinkDetector()
 
-                            popupManager.showScanningProgress {
-                                val accService = AccessibilityService.instance
-                                if (accService != null) {
-                                    accService.captureScreen { bitmap ->
-                                        if (bitmap != null) {
-                                            ocrManager.readText(
-                                                bitmap,
-                                                onSuccess = { ocrText ->
-                                                    val combined = "$ocrText ${ScreenTextHolder.text}".trim()
-                                                    runScanThread(combined, linkDetector, threatScanner)
-                                                },
-                                                onFailure = {
-                                                    val fallbackText = ScreenTextHolder.text
-                                                    runScanThread(fallbackText, linkDetector, threatScanner)
-                                                }
-                                            )
-                                        } else {
-                                            val fallbackText = ScreenTextHolder.text
-                                            runScanThread(fallbackText, linkDetector, threatScanner)
+                            popupManager.showScanPermissionPrompt(
+                                onConfirmScreenScan = {
+                                    popupManager.removePopup()
+
+                                    val accService = SecureBubbleAccessibilityService.instance
+                                    if (accService == null) {
+                                        Toast.makeText(
+                                            context,
+                                            "Please enable SecureBubble AI under Accessibility -> Installed Apps",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        try {
+                                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
                                         }
+                                        return@showScanPermissionPrompt
                                     }
-                                } else {
-                                    val fallbackText = ScreenTextHolder.text
-                                    runScanThread(fallbackText, linkDetector, threatScanner)
+
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        popupManager.showScanningProgress {
+                                            accService.captureScreen { bitmap: Bitmap? ->
+                                                if (bitmap != null) {
+                                                    ocrManager.readText(
+                                                        bitmap,
+                                                        onSuccess = { ocrText ->
+                                                            val combined = "$ocrText ${ScreenTextHolder.text}".trim()
+                                                            runScanThread(combined, linkDetector, threatScanner)
+                                                        },
+                                                        onFailure = {
+                                                            fallbackScan(linkDetector, threatScanner)
+                                                        }
+                                                    )
+                                                } else {
+                                                    fallbackScan(linkDetector, threatScanner)
+                                                }
+                                            }
+                                        }
+                                    }, 200)
+                                },
+                                onScanCustomText = { customText ->
+                                    popupManager.showScanningProgress {
+                                        runScanThread(customText, linkDetector, threatScanner)
+                                    }
+                                },
+                                onCancel = {
+                                    Toast.makeText(context, "Scan Canceled", Toast.LENGTH_SHORT).show()
                                 }
-                            }
+                            )
                         }
 
                         snapToEdge()
@@ -158,6 +187,11 @@ class BubbleManager(private val context: Context) {
 
         })
 
+    }
+
+    private fun fallbackScan(linkDetector: LinkDetector, threatScanner: RealThreatScanner) {
+        val text = ScreenTextHolder.text
+        runScanThread(text, linkDetector, threatScanner)
     }
 
     private fun runScanThread(rawText: String, linkDetector: LinkDetector, threatScanner: RealThreatScanner) {

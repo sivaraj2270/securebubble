@@ -1,5 +1,6 @@
 package com.sivaraj.securebubble_pro
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -12,6 +13,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -23,6 +25,182 @@ class PopupManager(private val context: Context) {
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     private var popupView: View? = null
+
+    fun showScanPermissionPrompt(onConfirmScreenScan: () -> Unit, onScanCustomText: (String) -> Unit, onCancel: () -> Unit) {
+        removePopup()
+
+        val density = context.resources.displayMetrics.density
+        val screenWidth = context.resources.displayMetrics.widthPixels
+
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt(), (18 * density).toInt())
+        }
+
+        val cardBg = GradientDrawable().apply {
+            setColor(Color.parseColor("#121824"))
+            cornerRadius = 20 * density
+            setStroke((1.5 * density).toInt(), Color.parseColor("#00E676"))
+        }
+        container.background = cardBg
+
+        // Header Title
+        val titleView = TextView(context).apply {
+            text = "🛡 SecureBubble AI Cyber Scanner"
+            setTextColor(Color.WHITE)
+            textSize = 16.5f
+            paint.isFakeBoldText = true
+        }
+        container.addView(titleView)
+
+        // Subtitle
+        val subText = TextView(context).apply {
+            text = "Scan active screen pixels, clipboard links, or paste any suspicious URL to decode with VirusTotal."
+            setTextColor(Color.parseColor("#7A8B9E"))
+            textSize = 12f
+            setPadding(0, (4 * density).toInt(), 0, (12 * density).toInt())
+        }
+        container.addView(subText)
+
+        // Clipboard Quick Scan Button (if clipboard has text)
+        var clipText = ""
+        try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            if (clipboard.hasPrimaryClip()) {
+                val item = clipboard.primaryClip?.getItemAt(0)
+                clipText = item?.text?.toString() ?: ""
+            }
+        } catch (e: Exception) {
+            // Ignore clipboard read error
+        }
+
+        if (clipText.isNotEmpty()) {
+            val clipBtn = Button(context).apply {
+                text = "📋 Scan Copied Link from Clipboard"
+                setTextColor(Color.parseColor("#00E676"))
+                textSize = 12f
+                val btnBg = GradientDrawable().apply {
+                    setColor(Color.parseColor("#1C2638"))
+                    cornerRadius = 10 * density
+                    setStroke((1 * density).toInt(), Color.parseColor("#00E676"))
+                }
+                background = btnBg
+                setOnClickListener {
+                    removePopup()
+                    onScanCustomText(clipText)
+                }
+            }
+            container.addView(clipBtn)
+            val spacer = View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(1, (8 * density).toInt())
+            }
+            container.addView(spacer)
+        }
+
+        // Paste/Type Link Edit Text
+        val linkInput = EditText(context).apply {
+            hint = "Paste or type link (e.g. trycloudflare.com)"
+            setHintTextColor(Color.parseColor("#7A8B9E"))
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            isFocusable = true
+            isFocusableInTouchMode = true
+            val inputBg = GradientDrawable().apply {
+                setColor(Color.parseColor("#182030"))
+                cornerRadius = 10 * density
+                setStroke((1 * density).toInt(), Color.parseColor("#2C3A52"))
+            }
+            background = inputBg
+            setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt())
+        }
+        container.addView(linkInput)
+
+        val spacer2 = View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(1, (12 * density).toInt())
+        }
+        container.addView(spacer2)
+
+        // Buttons Row
+        val buttonsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+        }
+
+        val cancelBtn = Button(context).apply {
+            text = "CANCEL"
+            setTextColor(Color.parseColor("#FF5252"))
+            setBackgroundColor(Color.TRANSPARENT)
+            setOnClickListener {
+                removePopup()
+                onCancel()
+            }
+        }
+
+        val scanInputBtn = Button(context).apply {
+            text = "SCAN LINK"
+            setTextColor(Color.BLACK)
+            textSize = 12f
+            paint.isFakeBoldText = true
+            val btnBg = GradientDrawable().apply {
+                setColor(Color.parseColor("#00B0FF"))
+                cornerRadius = 10 * density
+            }
+            background = btnBg
+            setOnClickListener {
+                val text = linkInput.text.toString().trim()
+                if (text.isNotEmpty()) {
+                    removePopup()
+                    onScanCustomText(text)
+                } else {
+                    removePopup()
+                    onConfirmScreenScan()
+                }
+            }
+        }
+
+        val scanScreenBtn = Button(context).apply {
+            text = "SCAN SCREEN"
+            setTextColor(Color.BLACK)
+            textSize = 12f
+            paint.isFakeBoldText = true
+            val btnBg = GradientDrawable().apply {
+                setColor(Color.parseColor("#00E676"))
+                cornerRadius = 10 * density
+            }
+            background = btnBg
+            setOnClickListener {
+                removePopup()
+                onConfirmScreenScan()
+            }
+        }
+
+        buttonsRow.addView(cancelBtn)
+        buttonsRow.addView(scanInputBtn)
+        buttonsRow.addView(scanScreenBtn)
+        container.addView(buttonsRow)
+
+        val params = WindowManager.LayoutParams(
+            (screenWidth * 0.9).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.CENTER
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
+            windowAnimations = android.R.style.Animation_Dialog
+        }
+
+        popupView = container
+        try {
+            windowManager.addView(popupView, params)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     fun showScanningProgress(onComplete: () -> Unit) {
         removePopup()
@@ -162,7 +340,7 @@ class PopupManager(private val context: Context) {
         // Detected Links section (Original vs Decoded)
         if (report.originalUrl.isNotEmpty()) {
             val origHeader = TextView(context).apply {
-                text = "Original Link:"
+                text = "Detected Link:"
                 setTextColor(Color.parseColor("#7A8B9E"))
                 textSize = 11.5f
                 setPadding(0, (8 * density).toInt(), 0, 0)

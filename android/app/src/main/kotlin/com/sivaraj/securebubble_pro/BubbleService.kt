@@ -2,6 +2,8 @@ package com.sivaraj.securebubble_pro
 
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 
 class BubbleService : Service() {
@@ -10,6 +12,20 @@ class BubbleService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        val notificationHelper = NotificationHelper(this)
+        notificationHelper.createNotificationChannel()
+        val notification = notificationHelper.createNotification()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NotificationHelper.NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            )
+        } else {
+            startForeground(NotificationHelper.NOTIFICATION_ID, notification)
+        }
 
         bubbleManager = BubbleManager(this)
         bubbleManager.showBubble()
@@ -24,7 +40,9 @@ class BubbleService : Service() {
     }
 
     override fun onDestroy() {
-        bubbleManager.removeBubble()
+        if (::bubbleManager.isInitialized) {
+            bubbleManager.removeBubble()
+        }
         super.onDestroy()
     }
 
