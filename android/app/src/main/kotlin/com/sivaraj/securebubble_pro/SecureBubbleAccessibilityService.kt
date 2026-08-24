@@ -4,10 +4,14 @@ import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
+import android.text.style.ClickableSpan
+import android.text.style.URLSpan
 import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import org.json.JSONArray
+import org.json.JSONObject
 
 class SecureBubbleAccessibilityService : AccessibilityService() {
 
@@ -35,6 +39,59 @@ class SecureBubbleAccessibilityService : AccessibilityService() {
         }
     }
 
+    fun getCurrentWindowText(): String {
+        return try {
+            val rootNode = rootInActiveWindow ?: return ""
+            val textBuilder = StringBuilder()
+            extractNodeText(rootNode, textBuilder)
+            textBuilder.toString().trim()
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    fun getAllScreenLinks(): List<String> {
+        val found = mutableListOf<String>()
+        try {
+            val rootNode = rootInActiveWindow ?: return emptyList()
+
+            fun traverse(node: AccessibilityNodeInfo?) {
+                if (node == null) return
+
+                val rawText = node.text
+                if (rawText != null) {
+                    if (rawText is android.text.Spanned) {
+                        val spans = rawText.getSpans(0, rawText.length, URLSpan::class.java)
+                        for (span in spans) {
+                            val url = span.url
+                            if (!url.isNullOrBlank() && !found.contains(url)) {
+                                found.add(url)
+                            }
+                        }
+                    }
+                    val str = rawText.toString().trim()
+                    if (str.isNotBlank() && (str.contains("http://") || str.contains("https://") || str.contains("www.") || str.contains(".com") || str.contains(".in") || str.contains(".org") || str.contains("chatgpt"))) {
+                        if (!found.contains(str)) found.add(str)
+                    }
+                }
+
+                val desc = node.contentDescription?.toString()?.trim()
+                if (!desc.isNullOrBlank() && (desc.contains("http://") || desc.contains("https://") || desc.contains("www."))) {
+                    if (!found.contains(desc)) found.add(desc)
+                }
+
+                for (i in 0 until node.childCount) {
+                    traverse(node.getChild(i))
+                }
+            }
+
+            traverse(rootNode)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return found
+    }
+
     private fun extractNodeText(node: AccessibilityNodeInfo?, builder: StringBuilder) {
         if (node == null) return
         node.text?.let {
@@ -50,6 +107,92 @@ class SecureBubbleAccessibilityService : AccessibilityService() {
         for (i in 0 until node.childCount) {
             extractNodeText(node.getChild(i), builder)
         }
+    }
+
+    fun extractHyperlinkInfo(): String {
+        try {
+            val rootNode = rootInActiveWindow ?: return createFallbackJson("Screen content unaccessible", "Not available")
+            val packageName = rootNode.packageName?.toString() ?: "Active App"
+
+            var visibleText = ""
+            var actualUrl = "Not available"
+
+            fun searchNodeForLinks(node: AccessibilityNodeInfo?) {
+                if (node == null) return
+
+                val rawText = node.text
+                if (rawText != null) {
+                    if (rawText is android.text.Spanned) {
+                        val spans = rawText.getSpans(0, rawText.length, URLSpan::class.java)
+                        if (spans.isNotEmpty()) {
+                            visibleText = rawText.toString()
+                            actualUrl = spans[0].url
+                            return
+                        }
+                    }
+
+                    val strText = rawText.toString()
+                    if (strText.contains("http://") || strText.contains("https://") || strText.contains("www.")) {
+                        if (visibleText.isEmpty()) visibleText = strText
+                    }
+                }
+
+                val desc = node.contentDescription?.toString()
+                if (desc != null && (desc.contains("http://") || desc.contains("https://"))) {
+                    if (actualUrl == "Not available") actualUrl = desc
+                }
+
+                for (i in 0 until node.childCount) {
+                    searchNodeForLinks(node.getChild(i))
+                    if (actualUrl != "Not available") return
+                }
+            }
+
+            searchNodeForLinks(rootNode)
+
+            if (visibleText.isEmpty() && ScreenTextHolder.text.isNotEmpty()) {
+                visibleText = ScreenTextHolder.text
+            }
+
+            val resultJson = JSONObject()
+            resultJson.put("visibleText", if (visibleText.isEmpty()) "No visible URL text detected" else visibleText)
+            resultJson.put("actualUrl", actualUrl)
+            resultJson.put("sourceApp", packageName)
+            resultJson.put("domain", "")
+            resultJson.put("finalUrl", actualUrl)
+            resultJson.put("redirects", JSONArray())
+
+            if (actualUrl == "Not available") {
+                resultJson.put("domainMatch", false)
+                resultJson.put("detectionType", "VISIBLE_URL_ONLY")
+                resultJson.put("riskLevel", "SUSPICIOUS")
+                resultJson.put("reason", "This application does not expose the hyperlink destination through its UI.")
+            } else {
+                resultJson.put("domainMatch", true)
+                resultJson.put("detectionType", "HYPERLINK_EXPOSED")
+                resultJson.put("riskLevel", "LOW")
+                resultJson.put("reason", "Hyperlink destination extracted successfully.")
+            }
+
+            return resultJson.toString()
+        } catch (e: Exception) {
+            return createFallbackJson("Error inspecting UI nodes: ${e.message}", "Not available")
+        }
+    }
+
+    private fun createFallbackJson(visible: String, actual: String): String {
+        val json = JSONObject()
+        json.put("visibleText", visible)
+        json.put("actualUrl", actual)
+        json.put("sourceApp", "System UI Inspection")
+        json.put("domain", "Not available")
+        json.put("finalUrl", "Not available")
+        json.put("redirects", JSONArray())
+        json.put("domainMatch", false)
+        json.put("detectionType", "VISIBLE_URL_ONLY")
+        json.put("riskLevel", "SUSPICIOUS")
+        json.put("reason", "This application does not expose the hyperlink destination through its UI.")
+        return json.toString()
     }
 
     fun captureScreen(onBitmapCaptured: (Bitmap?) -> Unit) {

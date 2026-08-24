@@ -21,12 +21,19 @@ class BubbleManager(private val context: Context) {
 
     private lateinit var popupManager: PopupManager
     private val ocrManager = OCRManager()
+    private val qrManager = QRManager()
+    private val threatScanner = RealThreatScanner()
+    private val linkDetector = LinkDetector()
 
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     private var bubbleView: View? = null
     private var params: WindowManager.LayoutParams? = null
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var isLongPressed = false
+    private var longPressRunnable: Runnable? = null
 
     @SuppressLint("ClickableViewAccessibility")
     fun showBubble() {
@@ -65,8 +72,8 @@ class BubbleManager(private val context: Context) {
 
         Toast.makeText(
             context,
-            "Bubble Started",
-            Toast.LENGTH_SHORT
+            "NUKEZERO Shield Active • Tap Bubble to Scan Screen",
+            Toast.LENGTH_LONG
         ).show()
 
         bubbleView?.setOnTouchListener(object : View.OnTouchListener {
@@ -89,10 +96,28 @@ class BubbleManager(private val context: Context) {
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
 
+                        isLongPressed = false
+
+                        // Start 450ms long press timer
+                        longPressRunnable = Runnable {
+                            isLongPressed = true
+                            v?.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                            showRadialSecurityModeMenu()
+                        }
+                        handler.postDelayed(longPressRunnable!!, 450)
+
                         return true
                     }
 
                     MotionEvent.ACTION_MOVE -> {
+
+                        val dx = abs(event.rawX - initialTouchX)
+                        val dy = abs(event.rawY - initialTouchY)
+
+                        // If user moved more than 15px, cancel long press
+                        if (dx > 15 || dy > 15) {
+                            longPressRunnable?.let { handler.removeCallbacks(it) }
+                        }
 
                         params!!.x =
                             initialX + (event.rawX - initialTouchX).toInt()
@@ -114,66 +139,14 @@ class BubbleManager(private val context: Context) {
 
                     MotionEvent.ACTION_UP -> {
 
+                        longPressRunnable?.let { handler.removeCallbacks(it) }
+
                         val dx = abs(event.rawX - initialTouchX)
                         val dy = abs(event.rawY - initialTouchY)
 
-                        // Single tap click on floating bubble
-                        if (dx < 15 && dy < 15) {
-                            val threatScanner = RealThreatScanner()
-                            val linkDetector = LinkDetector()
-
-                            popupManager.showScanPermissionPrompt(
-                                onConfirmScreenScan = {
-                                    popupManager.removePopup()
-
-                                    val accService = SecureBubbleAccessibilityService.instance
-                                    if (accService == null) {
-                                        Toast.makeText(
-                                            context,
-                                            "Please enable SecureBubble AI under Accessibility -> Installed Apps",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        try {
-                                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            }
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                        }
-                                        return@showScanPermissionPrompt
-                                    }
-
-                                    Handler(Looper.getMainLooper()).postDelayed({
-                                        popupManager.showScanningProgress {
-                                            accService.captureScreen { bitmap: Bitmap? ->
-                                                if (bitmap != null) {
-                                                    ocrManager.readText(
-                                                        bitmap,
-                                                        onSuccess = { ocrText ->
-                                                            val combined = "$ocrText ${ScreenTextHolder.text}".trim()
-                                                            runScanThread(combined, linkDetector, threatScanner)
-                                                        },
-                                                        onFailure = {
-                                                            fallbackScan(linkDetector, threatScanner)
-                                                        }
-                                                    )
-                                                } else {
-                                                    fallbackScan(linkDetector, threatScanner)
-                                                }
-                                            }
-                                        }
-                                    }, 200)
-                                },
-                                onScanCustomText = { customText ->
-                                    popupManager.showScanningProgress {
-                                        runScanThread(customText, linkDetector, threatScanner)
-                                    }
-                                },
-                                onCancel = {
-                                    Toast.makeText(context, "Scan Canceled", Toast.LENGTH_SHORT).show()
-                                }
-                            )
+                        // Single tap click on floating bubble -> Directly scan current screen
+                        if (!isLongPressed && dx < 15 && dy < 15) {
+                            executeScreenScan(linkDetector, threatScanner)
                         }
 
                         snapToEdge()
@@ -189,8 +162,125 @@ class BubbleManager(private val context: Context) {
 
     }
 
-    private fun fallbackScan(linkDetector: LinkDetector, threatScanner: RealThreatScanner) {
-        val text = ScreenTextHolder.text
+    private fun showRadialSecurityModeMenu() {
+        popupManager.showRadialSecurityMenu { selectedMode ->
+            when (selectedMode) {
+                "QUICK_SCAN" -> {
+                    Toast.makeText(context, "🔍 Quick Scan Activated", Toast.LENGTH_SHORT).show()
+                    executeScreenScan(linkDetector, threatScanner)
+                }
+                "QR_SCAN" -> {
+                    Toast.makeText(context, "📷 QR Code Lens Scan", Toast.LENGTH_SHORT).show()
+                    executeScreenScan(linkDetector, threatScanner)
+                }
+                "URL_SCAN" -> {
+                    showNormalScanPrompt()
+                }
+                "SCREENSHOT" -> {
+                    Toast.makeText(context, "📄 Full Pixel Screenshot Capture", Toast.LENGTH_SHORT).show()
+                    executeScreenScan(linkDetector, threatScanner)
+                }
+                "AI_SCAN" -> {
+                    Toast.makeText(context, "🤖 AI Threat Score Calculation", Toast.LENGTH_SHORT).show()
+                    executeScreenScan(linkDetector, threatScanner)
+                }
+                "DEEP_SCAN" -> {
+                    Toast.makeText(context, "🔬 Deep VirusTotal 90-Engine Scan", Toast.LENGTH_SHORT).show()
+                    executeScreenScan(linkDetector, threatScanner)
+                }
+            }
+        }
+    }
+
+    private fun showNormalScanPrompt() {
+        popupManager.showScanPermissionPrompt(
+            onConfirmScreenScan = {
+                executeScreenScan(linkDetector, threatScanner)
+            },
+            onScanCustomText = { customText ->
+                popupManager.showScanningProgress {
+                    runScanThread(customText, linkDetector, threatScanner)
+                }
+            },
+            onCancel = {
+                Toast.makeText(context, "Scan Canceled", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    private fun executeScreenScan(linkDetector: LinkDetector, threatScanner: RealThreatScanner) {
+        // Step 1: Remove all existing popups immediately to un-obscure the screen
+        popupManager.removePopup()
+
+        // Clear stale cached text from previous scans
+        ScreenTextHolder.text = ""
+
+        val accService = SecureBubbleAccessibilityService.instance
+        if (accService == null) {
+            Toast.makeText(
+                context,
+                "Please enable NUKEZERO Shield under Accessibility -> Installed Apps",
+                Toast.LENGTH_LONG
+            ).show()
+            try {
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            return
+        }
+
+        // Fetch all screen links from accessibility tree
+        val allNodeLinks = accService.getAllScreenLinks().joinToString(" ")
+
+        // Step 2: Delay 80ms to allow WindowManager to clear the popup overlays from screen, then capture clean screen
+        Handler(Looper.getMainLooper()).postDelayed({
+            accService.captureScreen { bitmap: Bitmap? ->
+                if (bitmap != null) {
+                    popupManager.showScanningProgress {
+                        qrManager.scanQr(
+                            bitmap,
+                            onSuccess = { qrPayloads ->
+                                ocrManager.readText(
+                                    bitmap,
+                                    onSuccess = { ocrText ->
+                                        val qrText = qrPayloads.joinToString(" ")
+                                        val combined = "$qrText $ocrText $allNodeLinks".trim()
+                                        runScanThread(combined, linkDetector, threatScanner)
+                                    },
+                                    onFailure = {
+                                        val qrText = qrPayloads.joinToString(" ")
+                                        val combined = "$qrText $allNodeLinks".trim()
+                                        runScanThread(combined, linkDetector, threatScanner)
+                                    }
+                                )
+                            },
+                            onFailure = {
+                                ocrManager.readText(
+                                    bitmap,
+                                    onSuccess = { ocrText ->
+                                        val combined = "$ocrText $allNodeLinks".trim()
+                                        runScanThread(combined, linkDetector, threatScanner)
+                                    },
+                                    onFailure = {
+                                        fallbackScan(allNodeLinks, linkDetector, threatScanner)
+                                    }
+                                )
+                            }
+                        )
+                    }
+                } else {
+                    fallbackScan(allNodeLinks, linkDetector, threatScanner)
+                }
+            }
+        }, 80)
+    }
+
+    private fun fallbackScan(allNodeLinks: String, linkDetector: LinkDetector, threatScanner: RealThreatScanner) {
+        val text = allNodeLinks.ifEmpty { ScreenTextHolder.text }
         runScanThread(text, linkDetector, threatScanner)
     }
 

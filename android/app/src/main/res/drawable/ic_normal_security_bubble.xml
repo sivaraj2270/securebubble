@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Clean Normal Shield Body -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M50,10L82,22V46C82,65.8 68.3,83.4 50,88C31.7,83.4 18,65.8 18,46V22L50,10Z"/>
+    <!-- Inner Metallic Inset -->
+    <path
+        android:fillColor="#A78BFA"
+        android:pathData="M50,18L76,28V46C76,61.8 65,76 50,80C35,76 24,61.8 24,46V28L50,18Z"/>
+    <!-- Center Emblem Checkmark -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M45,58L33,46L37.2,41.8L45,49.6L62.8,31.8L67,36L45,58Z"/>
+</vector>

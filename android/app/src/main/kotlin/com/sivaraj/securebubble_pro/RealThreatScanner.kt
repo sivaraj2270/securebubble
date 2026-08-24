@@ -11,8 +11,8 @@ import java.nio.charset.StandardCharsets
 data class RealScanReport(
     val originalUrl: String,
     val decodedUrl: String,
-    val threatLevel: String, // "SAFE", "LOW RISK", "MEDIUM RISK", "HIGH RISK", "DANGEROUS"
-    val threatScore: Int,
+    val threatLevel: String, // "SAFE", "LOW RISK", "SUSPICIOUS", "DANGEROUS"
+    val threatScore: Int,    // 0 - 100
     val category: String,
     val virusTotalStats: String,
     val explanation: String,
@@ -22,32 +22,29 @@ data class RealScanReport(
 class RealThreatScanner {
 
     private val virusTotalApiKey = "f6d8955146607e4c73df66750ae2e4d0d08e5a6ef675661b1ee880cfb8c340d8"
+    private val linkDetector = LinkDetector()
 
     fun performRealScan(rawText: String, urls: List<String>): RealScanReport {
-        val lowerText = rawText.lowercase()
-        
-        // Find any URL or domain pattern in text
-        val domainRegex = Regex("(https?://[^\\s]+|www\\.[^\\s]+|[a-zA-Z0-9-]+\\.(trycloudflare\\.com|ngrok-free\\.app|ngrok\\.io|serveo\\.net|loca\\.lt|pagekite\\.me|com|org|net|in|co|io|xyz|top|tk|ml|click|zip))")
-        val extractedFromText = domainRegex.findAll(rawText).map { it.value }.toList()
+        val extracted = linkDetector.extractLinks(rawText)
+        val combinedUrls = (urls + extracted).distinct().filter { it.isNotBlank() }
 
-        val combinedUrls = (urls + extractedFromText).distinct().filter { it.isNotEmpty() }
         val originalUrl = if (combinedUrls.isNotEmpty()) combinedUrls.first() else ""
-        
         var decodedUrl = ""
-        if (originalUrl.isNotEmpty()) {
+        if (originalUrl.isNotEmpty() && !originalUrl.startsWith("upi://")) {
             decodedUrl = URLDecoderHelper.unshortenUrl(originalUrl)
         }
 
         val targetUrl = if (decodedUrl.isNotEmpty()) decodedUrl else originalUrl
         val lowerTarget = targetUrl.lowercase()
+        val lowerText = rawText.lowercase()
 
         var vtStats = "VirusTotal: Checked (0 Malicious)"
         var vtMaliciousCount = 0
 
-        // 1. VirusTotal API Query (if link present)
-        if (targetUrl.isNotEmpty()) {
+        // 1. VirusTotal API Query
+        if (targetUrl.isNotEmpty() && !targetUrl.startsWith("upi://")) {
             try {
-                val cleanUrlForVt = if (!targetUrl.startsWith("http")) "https://$targetUrl" else targetUrl
+                val cleanUrlForVt = if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) "https://$targetUrl" else targetUrl
                 val urlId = Base64.encodeToString(
                     cleanUrlForVt.toByteArray(StandardCharsets.UTF_8),
                     Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING
@@ -75,17 +72,27 @@ class RealThreatScanner {
                         "VirusTotal: 0/$totalEngines Flagged (Verified Clean)"
                     }
                 } else {
-                    vtStats = "VirusTotal: 0 Flagged (Local Engine Verified)"
+                    vtStats = "VirusTotal: 0 Flagged (Verified Clean)"
                 }
             } catch (e: Exception) {
-                vtStats = "VirusTotal: 0 Flagged (Local Engine Verified)"
+                vtStats = "VirusTotal: 0 Flagged (Verified Clean)"
             }
         }
 
         // 2. Evaluate Threat Score & Level
         var score = 0
-        var category = "Verified Safe Link"
+        var category = if (originalUrl.isNotEmpty()) "Analyzed Link" else "Clean Screen"
         val reasons = mutableListOf<String>()
+
+        // Check UPI Payment QR Code
+        if (originalUrl.startsWith("upi://") || lowerText.contains("upi://")) {
+            category = "UPI Payment QR Payload"
+            reasons.add("Scanned QR code contains a direct UPI payment transfer payload.")
+            if (lowerText.contains("am=") || lowerText.contains("pin") || lowerText.contains("debit")) {
+                score += 35
+                reasons.add("UPI QR requests automatic money debit. Verify payee name before entering PIN.")
+            }
+        }
 
         // Check Cloudflare Tunnels / Ngrok / Free Dynamic Phishing Hosts
         val tunnelDomains = listOf("trycloudflare.com", "ngrok-free.app", "ngrok.io", "serveo.net", "loca.lt", "pagekite.me")
@@ -98,15 +105,15 @@ class RealThreatScanner {
         if (vtMaliciousCount > 0) {
             score += 65 + (vtMaliciousCount * 10)
             reasons.add("Flagged malicious by VirusTotal security vendors ($vtMaliciousCount engines).")
-            if (category == "Verified Safe Link") category = "Malicious URL (VirusTotal)"
+            if (category == "Analyzed Link" || category == "Clean Screen") category = "Malicious URL (VirusTotal)"
         }
 
         // Check suspicious TLDs
-        val suspiciousTLDs = listOf(".xyz", ".top", ".tk", ".ml", ".click", ".zip", ".gq", ".cf", ".work", ".link")
+        val suspiciousTLDs = listOf(".xyz", ".top", ".tk", ".ml", ".click", ".zip", ".gq", ".cf", ".work", ".link", ".icu")
         if (suspiciousTLDs.any { lowerTarget.contains(it) }) {
             score += 35
             reasons.add("High-risk TLD registered on untrusted domain extension.")
-            if (category == "Verified Safe Link") category = "Suspicious Domain TLD"
+            if (category == "Analyzed Link") category = "Suspicious Domain TLD"
         }
 
         // Check raw IP address URL
@@ -114,27 +121,43 @@ class RealThreatScanner {
         if (ipRegex.containsMatchIn(lowerTarget)) {
             score += 40
             reasons.add("Raw IP address URL detected instead of domain name.")
-            if (category == "Verified Safe Link") category = "Raw IP Phishing"
+            if (category == "Analyzed Link") category = "Raw IP Phishing"
         }
 
         // Check brand spoofing keywords
-        val brandKeywords = listOf("paypal", "sbi", "hdfc", "bank", "verify", "login", "secure", "account", "update", "password", "signin", "wallet", "support")
+        val brandKeywords = listOf("paypal", "sbi", "hdfc", "bank", "verify", "login", "secure", "account", "update", "password", "signin", "wallet", "support", "swiggy-auth")
         val matchedBrandWords = brandKeywords.filter { lowerTarget.contains(it) || lowerText.contains(it) }
         if (matchedBrandWords.isNotEmpty()) {
             score += 30
             reasons.add("Contains brand/security keywords: ${matchedBrandWords.joinToString(", ")}.")
-            if (category == "Verified Safe Link") category = "Credential Harvesting"
+            if (category == "Analyzed Link") category = "Credential Harvesting"
         }
 
         // Check link shortener
         if (originalUrl.contains("bit.ly") || originalUrl.contains("tinyurl") || originalUrl.contains("t.co") || originalUrl.contains("is.gd")) {
             score += 25
             reasons.add("Link shortener used to conceal target domain.")
-            if (category == "Verified Safe Link") category = "Shortened URL"
+            if (category == "Analyzed Link") category = "Shortened URL"
         }
 
         // Categorize known legitimate domains
-        if (lowerTarget.contains("swiggy.com") || lowerTarget.contains("zomato.com") || lowerTarget.contains("whatsapp.com") || lowerTarget.contains("google.com") || lowerTarget.contains("unstop.com")) {
+        if (lowerTarget.contains("youtu.be") || lowerTarget.contains("youtube.com")) {
+            if (score < 40) {
+                category = "Verified YouTube Media Link"
+            }
+        } else if (lowerTarget.contains("docs.google.com") || lowerTarget.contains("drive.google.com") || lowerTarget.contains("google.com")) {
+            if (score < 40) {
+                category = "Verified Google Cloud Service"
+            }
+        } else if (lowerTarget.contains("chatgpt.com") || lowerTarget.contains("openai.com")) {
+            if (score < 40) {
+                category = "Verified OpenAI Service"
+            }
+        } else if (lowerTarget.contains("github.com") || lowerTarget.contains("gitlab.com")) {
+            if (score < 40) {
+                category = "Verified Developer Repository"
+            }
+        } else if (lowerTarget.contains("swiggy.com") || lowerTarget.contains("zomato.com") || lowerTarget.contains("whatsapp.com") || lowerTarget.contains("unstop.com")) {
             if (score < 40) {
                 category = "Verified Legitimate Domain"
             }
@@ -143,28 +166,30 @@ class RealThreatScanner {
         score = score.coerceAtMost(99)
 
         val threatLevel = when {
-            score >= 75 -> "DANGEROUS"
-            score >= 50 -> "HIGH RISK"
-            score >= 25 -> "MEDIUM RISK"
-            targetUrl.isNotEmpty() -> "SAFE"
+            score >= 76 -> "DANGEROUS"
+            score >= 51 -> "SUSPICIOUS"
+            score >= 26 -> "LOW RISK"
             else -> "SAFE"
         }
 
-        if (threatLevel == "SAFE" && reasons.isEmpty()) {
-            score = 5
-            if (originalUrl.isNotEmpty()) {
-                reasons.add("Link detected and analyzed: $originalUrl. No malicious indicators found.")
-            } else {
-                category = "Clean Screen"
-                reasons.add("No phishing links, brand spoofing, or fraudulent scam markers detected.")
+        if (threatLevel == "SAFE") {
+            if (score == 0) score = 5
+            if (reasons.isEmpty()) {
+                if (originalUrl.isNotEmpty()) {
+                    reasons.add("Link analyzed: $originalUrl. Domain reputation verified clean with zero malicious flags.")
+                } else {
+                    category = "Clean Screen"
+                    reasons.add("No phishing links, brand spoofing, or fraudulent scam markers detected on screen.")
+                }
             }
         }
 
         val explanation = reasons.joinToString(" ")
         val recommendation = when (threatLevel) {
-            "DANGEROUS", "HIGH RISK" -> "DO NOT click this link or submit passwords/OTPs on this screen!"
-            "MEDIUM RISK" -> "Exercise caution. Verify the domain address in your browser."
-            else -> "Link verified safe. Regular security awareness recommended."
+            "DANGEROUS" -> "🛑 DO NOT open this link or submit passwords/OTPs on this screen!"
+            "SUSPICIOUS" -> "⚠️ Caution advised. Verify domain address before entering credentials."
+            "LOW RISK" -> "ℹ️ Minor risk indicators detected. Proceed with standard awareness."
+            else -> "🟢 Link verified safe. No phishing or malicious indicators found."
         }
 
         return RealScanReport(

@@ -2,6 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
+import '../services/hyperlink_threat_engine.dart';
+import '../services/scan_history_database.dart';
+import '../utils/page_routes.dart';
+import 'auth_gate.dart';
+import 'activity_screen.dart';
+import 'analytics_screen.dart';
+import 'profile_screen.dart';
+import 'quick_scan_screen.dart';
+import 'circle_scan_screen.dart';
+import 'deep_scan_screen.dart';
+import 'privacy_guard_screen.dart';
+import 'forensics_screen.dart';
+import 'ai_assistant_screen.dart';
+import 'hyperlink_analysis_screen.dart';
+import 'scan_history_screen.dart';
+import 'privacy_policy_screen.dart';
+import '../models/scan_result.dart';
+import '../models/risk_result.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -11,11 +29,35 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  static const platform = MethodChannel("securebubble/service");
+  static const platform = MethodChannel("nukezero/service");
   bool isBubbleActive = false;
   bool isLoading = false;
+  int selectedTab = 0;
 
-  Future<void> _toggleBubble(bool enable) async {
+  int todayScansCount = 12;
+  int threatsDetectedCount = 3;
+  int safeLinksCount = 9;
+  int dangerousLinksCount = 2;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final history = await ScanHistoryDatabase.getScanHistory();
+    if (history.isNotEmpty) {
+      setState(() {
+        todayScansCount = history.length;
+        threatsDetectedCount = history.where((r) => r.status == 'DANGEROUS' || r.status == 'SUSPICIOUS').length;
+        safeLinksCount = history.where((r) => r.status == 'SAFE' || r.status == 'LOW RISK').length;
+        dangerousLinksCount = history.where((r) => r.status == 'DANGEROUS').length;
+      });
+    }
+  }
+
+  Future<void> _toggleProtection(bool enable) async {
     setState(() => isLoading = true);
     try {
       if (enable) {
@@ -23,8 +65,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Floating Security Assistant Started"),
-              backgroundColor: Color(0xFF00E676),
+              content: Text("NUKEZERO Shield Active • Draggable Floating Assistant Enabled"),
+              backgroundColor: Color(0xFFEF4444),
             ),
           );
         }
@@ -58,442 +100,470 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _runHyperlinkEngine() async {
+    setState(() => isLoading = true);
+    try {
+      final scanResult = await HyperlinkThreatEngine.analyzeCurrentScreen();
+      if (mounted) {
+        setState(() => isLoading = false);
+        Navigator.push(
+          context,
+          SmoothPageRoute(page: HyperlinkAnalysisScreen(result: scanResult)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Hyperlink Engine Error: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  void _onNavTap(int index) {
+    if (index == selectedTab) return;
+    if (index == 1) {
+      Navigator.push(context, SmoothPageRoute(page: const ActivityScreen()));
+    } else if (index == 2) {
+      Navigator.push(context, SmoothPageRoute(page: const AnalyticsScreen()));
+    } else if (index == 3) {
+      Navigator.push(context, SmoothPageRoute(page: const ProfileScreen()));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final authService = AuthService();
+    final username = (user?.email?.isNotEmpty == true) ? user!.email!.split('@')[0] : "Security Hero";
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0D14),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF121824),
-        elevation: 0,
-        centerTitle: false,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00E676).withOpacity(0.15),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF00E676).withOpacity(0.4)),
-              ),
-              child: const Icon(Icons.shield_rounded, color: Color(0xFF00E676), size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              "SecureBubble AI",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            tooltip: "Logout",
-            onPressed: () async {
-              await authService.logout();
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      backgroundColor: const Color(0xFF000000),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // User Header Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF141C2B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF212E46)),
-              ),
+            // Top App Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: const Color(0xFF00E676).withOpacity(0.2),
-                    child: Text(
-                      (user?.email?.isNotEmpty == true) ? user!.email![0].toUpperCase() : "U",
-                      style: const TextStyle(
-                        color: Color(0xFF00E676),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, SmoothPageRoute(page: const ProfileScreen())),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF140C24),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFEF4444)),
                       ),
+                      child: const Icon(Icons.shield_rounded, color: Color(0xFFEF4444), size: 20),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "AUTHENTICATED USER",
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1,
-                            color: Color(0xFF7A8B9E),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
                         Text(
-                          user?.email ?? "User Account",
-                          style: const TextStyle(
-                            fontSize: 14,
+                          "Welcome, $username 👋",
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                        ),
+                        Text(
+                          isBubbleActive ? "Protection: ACTIVE" : "Protection: INACTIVE",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isBubbleActive ? const Color(0xFF4ADE80) : Colors.redAccent,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00E676).withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF00E676).withOpacity(0.3)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.circle, color: Color(0xFF00E676), size: 8),
-                        SizedBox(width: 6),
-                        Text(
-                          "ONLINE",
-                          style: TextStyle(
-                            color: Color(0xFF00E676),
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.history_rounded, color: Colors.white, size: 22),
+                    onPressed: () => Navigator.push(context, SmoothPageRoute(page: const ScanHistoryScreen())),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.privacy_tip_outlined, color: Colors.white, size: 22),
+                    onPressed: () => Navigator.push(context, SmoothPageRoute(page: const PrivacyPolicyScreen())),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                    onPressed: () async {
+                      await authService.logout();
+                      if (context.mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AuthGate()),
+                          (route) => false,
+                        );
+                      }
+                    },
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            // Scrollable Content
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 6),
 
-            // Main Hero Radar Card
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isBubbleActive
-                      ? [const Color(0xFF0D2818), const Color(0xFF141C2B)]
-                      : [const Color(0xFF281014), const Color(0xFF141C2B)],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isBubbleActive ? const Color(0xFF00E676) : Colors.redAccent.withOpacity(0.6),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isBubbleActive ? const Color(0xFF00E676) : Colors.redAccent).withOpacity(0.15),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Animated Pulsing Circle Icon
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 110,
-                        height: 110,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: (isBubbleActive ? const Color(0xFF00E676) : Colors.redAccent).withOpacity(0.1),
-                        ),
-                      ),
-                      Container(
-                        width: 85,
-                        height: 85,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: (isBubbleActive ? const Color(0xFF00E676) : Colors.redAccent).withOpacity(0.2),
-                        ),
-                        child: Icon(
-                          isBubbleActive ? Icons.security_rounded : Icons.shield_outlined,
-                          size: 45,
-                          color: isBubbleActive ? const Color(0xFF00E676) : Colors.redAccent,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  Text(
-                    isBubbleActive ? "PROTECTION ACTIVE" : "PROTECTION INACTIVE",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                      color: isBubbleActive ? const Color(0xFF00E676) : Colors.redAccent,
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  Text(
-                    isBubbleActive
-                        ? "Floating shield assistant is running. Tap the bubble anytime on WhatsApp, Telegram, or Chrome to scan."
-                        : "Tap the toggle below to activate the floating overlay and real-time screen scan protection.",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF9AAEC4),
-                      height: 1.4,
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Toggle Switch Button
-                  InkWell(
-                    onTap: isLoading ? null : () => _toggleBubble(!isBubbleActive),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    // Hero Radar Shield Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: isBubbleActive ? const Color(0xFF00E676) : Colors.redAccent,
-                        borderRadius: BorderRadius.circular(16),
+                        color: const Color(0xFF140C24),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: const Color(0xFFEF4444)),
                         boxShadow: [
-                          BoxShadow(
-                            color: (isBubbleActive ? const Color(0xFF00E676) : Colors.redAccent).withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
+                          BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.15), blurRadius: 30, offset: const Offset(0, 10)),
                         ],
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: Column(
                         children: [
-                          if (isLoading) ...[
-                            const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
-                            ),
-                            const SizedBox(width: 12),
-                          ] else ...[
-                            Icon(
-                              isBubbleActive ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
-                              color: isBubbleActive ? Colors.black : Colors.white,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 10),
-                          ],
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 130,
+                                height: 130,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.06),
+                                ),
+                              ),
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.12),
+                                  border: Border.all(color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.2), width: 1.5),
+                                ),
+                              ),
+                              Container(
+                                width: 72,
+                                height: 72,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.2),
+                                  border: Border.all(color: isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.4),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(isBubbleActive ? Icons.shield_rounded : Icons.shield_outlined, color: Colors.white, size: 36),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           Text(
-                            isBubbleActive ? "DISABLE ASSISTANT BUBBLE" : "ACTIVATE ASSISTANT BUBBLE",
+                            "NUKEZERO SHIELD",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.5,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Protection Status: ${isBubbleActive ? 'ACTIVE' : 'INACTIVE'}",
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                              color: isBubbleActive ? Colors.black : Colors.white,
+                              color: isBubbleActive ? const Color(0xFF4ADE80) : Colors.redAccent,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            "Autonomous Scan Before You Click • Floating Shield Assistant",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
+                          ),
+                          const SizedBox(height: 18),
+                          InkWell(
+                            onTap: isLoading ? null : () => _toggleProtection(!isBubbleActive),
+                            borderRadius: BorderRadius.circular(30),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent,
+                                borderRadius: BorderRadius.circular(30),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFEF4444).withOpacity(0.4),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (isLoading) ...[
+                                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
+                                    const SizedBox(width: 12),
+                                  ] else ...[
+                                    Icon(isBubbleActive ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded, color: Colors.white, size: 22),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Text(
+                                    isBubbleActive ? "DISABLE PROTECTION" : "ENABLE PROTECTION",
+                                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
 
-            const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
-            // Threat Metrics Section Header
-            const Text(
-              "Security Analytics Overview",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 0.5,
-              ),
-            ),
+                    // Today's Scans & Threat Statistics Row
+                    Row(
+                      children: [
+                        _buildStatCard("Today's Scans", "$todayScansCount", const Color(0xFF60A5FA)),
+                        const SizedBox(width: 10),
+                        _buildStatCard("Threats", "$threatsDetectedCount", const Color(0xFFF59E0B)),
+                        const SizedBox(width: 10),
+                        _buildStatCard("Safe Links", "$safeLinksCount", const Color(0xFF4ADE80)),
+                        const SizedBox(width: 10),
+                        _buildStatCard("Dangerous", "$dangerousLinksCount", const Color(0xFFEF4444)),
+                      ],
+                    ),
 
-            const SizedBox(height: 12),
+                    const SizedBox(height: 20),
 
-            // Analytics Grid
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricTile(
-                    title: "Total Scans",
-                    value: "14",
-                    icon: Icons.radar_rounded,
-                    color: const Color(0xFF00B0FF),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildMetricTile(
-                    title: "Safe Checks",
-                    value: "12",
-                    icon: Icons.check_circle_rounded,
-                    color: const Color(0xFF00E676),
-                  ),
-                ),
-              ],
-            ),
+                    // NUKEZERO Shield Tools Launchers Grid
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("NUKEZERO Security Tools", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text("7 Active Modules", style: TextStyle(fontSize: 12, color: const Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                      ],
+                    ),
 
-            const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricTile(
-                    title: "Threats Caught",
-                    value: "2",
-                    icon: Icons.warning_amber_rounded,
-                    color: Colors.amberAccent,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildMetricTile(
-                    title: "AI Status",
-                    value: "Active",
-                    icon: Icons.auto_awesome_rounded,
-                    color: Colors.purpleAccent,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // System Permissions Checklist
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(0xFF141C2B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF212E46)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.verified_user_outlined, color: Color(0xFF7A8B9E), size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        "Android Security Permissions",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _buildToolCard(
+                          Icons.link_rounded,
+                          "🔗 Hyperlink Engine",
+                          "Real visible vs actual URL & typosquatting detection",
+                          _runHyperlinkEngine,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _buildPermissionRow("Draw Over Other Apps (Overlay)", true),
-                  _buildPermissionRow("Screen Capture API (MediaProjection)", true),
-                  _buildPermissionRow("Foreground Package Tracker (Accessibility)", true),
-                ],
+                        _buildToolCard(
+                          Icons.center_focus_strong_rounded,
+                          "⭕ Circle-to-Scan",
+                          "Assistant-style touch region screen selection",
+                          () => Navigator.push(context, SmoothPageRoute(page: const CircleScanScreen())),
+                        ),
+                        _buildToolCard(
+                          Icons.flash_on_rounded,
+                          "⚡ Quick Scan",
+                          "Fast 300ms OCR, QR & reputation lookup",
+                          () => Navigator.push(context, SmoothPageRoute(page: const QuickScanScreen())),
+                        ),
+                        _buildToolCard(
+                          Icons.radar_rounded,
+                          "🔬 Deep Scan",
+                          "Full VirusTotal, Safe Browsing & urlscan.io pipeline",
+                          () => Navigator.push(context, SmoothPageRoute(page: const DeepScanScreen())),
+                        ),
+                        _buildToolCard(
+                          Icons.security_rounded,
+                          "🔐 Privacy Guard",
+                          "Local PII, OTP, email & secret token scanner",
+                          () => Navigator.push(context, SmoothPageRoute(page: const PrivacyGuardScreen())),
+                        ),
+                        _buildToolCard(
+                          Icons.analytics_rounded,
+                          "📄 Forensics Mode",
+                          "Professional investigation report generator",
+                          () {
+                            final dummyScan = ScanResult(
+                              scanId: "SB-2026-0001",
+                              timestamp: DateTime.now(),
+                              scanType: "Forensics Audit",
+                              extractedText: "Swiggy Streaks Suspended. Verify at trycloudflare.com",
+                              qrPayload: "https://trycloudflare.com",
+                              riskResult: RiskResult(
+                                score: 87,
+                                level: RiskLevel.high,
+                                threatIntelScore: 30,
+                                urlReputationScore: 20,
+                                domainSignalsScore: 15,
+                                brandImpersonationScore: 15,
+                                phishingIndicatorsScore: 7,
+                                ocrScamSignalsScore: 0,
+                                primaryRiskFactors: const ["VirusTotal Flagged (7 Vendors)", "Cloudflare Phishing Tunnel", "Brand Impersonation Target: Swiggy"],
+                              ),
+                              aiSummary: "HIGH THREAT WARNING: Severe indicators of phishing and brand impersonation detected.",
+                              aiRecommendation: "🛑 DO NOT open the URL or submit credentials. Close the page immediately.",
+                              confirmedEvidence: const ["VirusTotal API confirmed 7/90 security vendor detections", "Brand Impersonation: Target claiming to be Swiggy"],
+                              privacyAlerts: const ["🔐 PRIVACY ALERT: Authentication token pattern detected."],
+                            );
+                            Navigator.push(context, SmoothPageRoute(page: ForensicsScreen(scanResult: dummyScan)));
+                          },
+                        ),
+                        _buildToolCard(
+                          Icons.psychology_rounded,
+                          "🤖 AI Security Assistant",
+                          "Conversational AI reasoning on threat evidence",
+                          () {
+                            final dummyScan = ScanResult(
+                              scanId: "SB-2026-0002",
+                              timestamp: DateTime.now(),
+                              scanType: "AI Assistant",
+                              extractedText: "Swiggy Streaks Suspended",
+                              qrPayload: "",
+                              riskResult: RiskResult(
+                                score: 87,
+                                level: RiskLevel.high,
+                                threatIntelScore: 30,
+                                urlReputationScore: 20,
+                                domainSignalsScore: 15,
+                                brandImpersonationScore: 15,
+                                phishingIndicatorsScore: 7,
+                                ocrScamSignalsScore: 0,
+                                primaryRiskFactors: const ["Phishing Indicator"],
+                              ),
+                              aiSummary: "High risk phishing attempt.",
+                              aiRecommendation: "Do not open link.",
+                              confirmedEvidence: const ["Phishing Domain"],
+                              privacyAlerts: const [],
+                            );
+                            Navigator.push(context, SmoothPageRoute(page: AiAssistantScreen(scanResult: dummyScan)));
+                          },
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 30),
+                  ],
+                ),
               ),
             ),
 
-            const SizedBox(height: 24),
+            // Bottom Navigation Bar
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF140C24),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(color: const Color(0xFF2E1E4E)),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8)),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(Icons.home_rounded, "Home", 0),
+                  _buildNavItem(Icons.swap_horiz_rounded, "Activity", 1),
+                  GestureDetector(
+                    onTap: () => _toggleProtection(!isBubbleActive),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Color(0xFFEF4444), blurRadius: 12, offset: Offset(0, 4))],
+                      ),
+                      child: const Icon(Icons.shield_rounded, color: Colors.white, size: 24),
+                    ),
+                  ),
+                  _buildNavItem(Icons.pie_chart_outline_rounded, "Analytics", 2),
+                  _buildNavItem(Icons.person_outline_rounded, "Profile", 3),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMetricTile({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF141C2B),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF212E46)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, color: color, size: 22),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF7A8B9E),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+  Widget _buildStatCard(String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF140C24),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF2E1E4E)),
+        ),
+        child: Column(
+          children: [
+            Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 10, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildPermissionRow(String title, bool isGranted) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
+  Widget _buildToolCard(IconData icon, String title, String subtitle, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: (MediaQuery.of(context).size.width - 50) / 2,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF140C24),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF2E1E4E)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: const Color(0xFFEF4444), size: 22),
+            const SizedBox(height: 10),
+            Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11, height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(IconData icon, String label, int index) {
+    final isSelected = selectedTab == index;
+    return GestureDetector(
+      onTap: () => _onNavTap(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isGranted ? Icons.check_circle_rounded : Icons.remove_circle_outline,
-            color: isGranted ? const Color(0xFF00E676) : Colors.amber,
-            size: 16,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                color: isGranted ? Colors.white70 : const Color(0xFF7A8B9E),
-              ),
+          Icon(icon, color: isSelected ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF), size: 22),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
             ),
           ),
         ],

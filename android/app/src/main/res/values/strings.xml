@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SecureBubble AI</string>
-    <string name="accessibility_desc">SecureBubble AI monitors active applications for security logs.</string>
+    <string name="app_name">NUKEZERO Shield</string>
+    <string name="accessibility_desc">NUKEZERO Shield monitors active applications for security logs and phishing hyperlinks.</string>
 </resources>

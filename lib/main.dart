@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'firebase_options.dart';
-import 'screens/auth_gate.dart';
+import 'screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,19 +11,22 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  runApp(const SecureBubbleApp());
+  runApp(const NukezeroShieldApp());
 }
 
-class SecureBubbleApp extends StatelessWidget {
-  const SecureBubbleApp({super.key});
+class NukezeroShieldApp extends StatelessWidget {
+  const NukezeroShieldApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "SecureBubble AI",
-      theme: ThemeData.dark(),
-      home: const AuthGate(),
+      title: "NUKEZERO Shield",
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF000000),
+        primaryColor: const Color(0xFFEF4444),
+      ),
+      home: const SplashScreen(),
     );
   }
 }

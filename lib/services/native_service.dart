@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 
 class NativeService {
   static const MethodChannel _channel =
-  MethodChannel('securebubble/native');
+  MethodChannel('nukezero/service');
 
   // Native Test
   static Future<void> showToast() async {

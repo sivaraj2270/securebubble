@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "SecureBubble AI 360 - Laptop Web Assistant",
+  "version": "1.0.0",
+  "description": "System-wide floating security assistant bubble for all web pages and laptop browser screens.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["content_style.css"],
+      "js": ["content_script.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "SecureBubble AI"
+  }
+}

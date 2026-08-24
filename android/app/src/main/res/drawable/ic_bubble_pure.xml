@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Outer Glow Shell -->
+    <path
+        android:fillColor="#338B5CF6"
+        android:pathData="M50,5A45,45 0 1,1 49.9,5Z"/>
+
+    <!-- 3D Core Sphere -->
+    <path
+        android:fillColor="#18102B"
+        android:strokeColor="#8B5CF6"
+        android:strokeWidth="2.5"
+        android:pathData="M50,15A35,35 0 1,1 49.9,15Z"/>
+
+    <!-- Concentric Cyber Band -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#A78BFA"
+        android:strokeWidth="2"
+        android:pathData="M50,22A28,28 0 1,1 49.9,22Z"/>
+
+    <!-- Central Security Shield Nucleus -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M50,32L65,39V53C65,63.5 58.5,73 50,76C41.5,73 35,63.5 35,53V39L50,32Z"/>
+
+    <!-- Inner Shield Checkmark -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,59L39,52L41.8,49.2L46,53.4L58.2,41.2L61,44L46,59Z"/>
+</vector>
