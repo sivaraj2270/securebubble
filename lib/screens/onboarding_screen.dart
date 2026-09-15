@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import '../utils/page_routes.dart';
-import 'dashboard_screen.dart';
+import 'auth_gate.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -10,126 +11,307 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+  int _currentStep = 3; // Matching Step 3 Preferences in media_1789140178332.jpg
 
-  final List<Map<String, String>> _pages = [
-    {
-      'title': 'Autonomous Security Bubble',
-      'desc': 'NUKEZERO Shield runs as a draggable floating bubble overlay over WhatsApp, Chrome, SMS, and supported apps for instant "Scan Before You Click" protection.',
-      'icon': 'shield_rounded',
-    },
-    {
-      'title': 'Real-Time Hyperlink & QR Defense',
-      'desc': 'Detects deceptive links, typosquatting domains, fake UPI payment QRs, and phishing traps directly on your screen without opening suspicious sites.',
-      'icon': 'qr_code_scanner_rounded',
-    },
-    {
-      'title': 'Privacy & Consent First',
-      'desc': 'Scanning is executed strictly upon explicit user interaction. No silent background screenshots or unauthorized data logging. Processed safely on-device.',
-      'icon': 'lock_rounded',
-    },
+  // Preferences state
+  bool _floatingBubbleEnabled = true;
+  bool _vpnFirewallEnabled = true;
+  bool _autoInspectLinks = true;
+  String _selectedProtectionLevel = "Balanced Protection (Recommended)";
+
+  final List<String> _protectionLevels = [
+    "Balanced Protection (Recommended)",
+    "Strict Anti-Phishing Shield",
+    "Maximum Paranoid Firewall Mode",
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
-      body: SafeArea(
+      backgroundColor: ZentraTheme.background,
+      body: ZentraTheme.buildAmbientBackground(
         child: Column(
           children: [
-            Expanded(
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (index) => setState(() => _currentPage = index),
-                itemCount: _pages.length,
-                itemBuilder: (context, index) {
-                  final item = _pages[index];
-                  return Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFF140C24),
-                            border: Border.all(color: const Color(0xFFEF4444), width: 2),
-                          ),
-                          child: Icon(
-                            index == 0 ? Icons.shield_rounded : (index == 1 ? Icons.qr_code_scanner_rounded : Icons.lock_rounded),
-                            color: const Color(0xFFEF4444),
-                            size: 54,
-                          ),
-                        ),
-                        const SizedBox(height: 36),
-                        Text(
-                          item['title']!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          item['desc']!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13.5, height: 1.5),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Page Indicator & Bottom Button
-            Padding(
-              padding: const EdgeInsets.all(24),
+            const SizedBox(height: 24),
+            // Header Title
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      _pages.length,
-                      (i) => Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: _currentPage == i ? 24 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _currentPage == i ? const Color(0xFFEF4444) : const Color(0xFF2E1E4E),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
+                  Text(
+                    "Welcome to SecureBubble AI",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444),
-                      minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    ),
-                    onPressed: () {
-                      if (_currentPage < _pages.length - 1) {
-                        _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
-                      } else {
-                        Navigator.pushReplacement(
-                          context,
-                          SmoothPageRoute(page: const DashboardScreen()),
-                        );
-                      }
-                    },
-                    child: Text(
-                      _currentPage == _pages.length - 1 ? "GET STARTED" : "NEXT",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  SizedBox(height: 6),
+                  Text(
+                    "Set up your security preferences for real-time protection",
+                    style: TextStyle(
+                      color: ZentraTheme.textSecondary,
+                      fontSize: 13,
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 28),
+
+            // Horizontal Stepper Bar (matching media_1789140178332.jpg)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildStepItem(stepNum: 1, title: "Profile Info", isCompleted: _currentStep > 1, isActive: _currentStep == 1),
+                  _buildStepConnector(isCompleted: _currentStep > 1),
+                  _buildStepItem(stepNum: 2, title: "Experience", isCompleted: _currentStep > 2, isActive: _currentStep == 2),
+                  _buildStepConnector(isCompleted: _currentStep > 2),
+                  _buildStepItem(stepNum: 3, title: "Preferences", isCompleted: _currentStep > 3, isActive: _currentStep == 3),
+                  _buildStepConnector(isCompleted: _currentStep > 3),
+                  _buildStepItem(stepNum: 4, title: "Finish", isCompleted: _currentStep > 4, isActive: _currentStep == 4),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 36),
+
+            // Center Glassmorphic Setup Form Card (matching media_1789140178332.jpg)
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ZentraTheme.buildGlassCard(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Toggle 1: Floating Bubble Defense
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.bubble_chart_rounded, color: ZentraTheme.accentCyan, size: 22),
+                              SizedBox(width: 12),
+                              Text(
+                                "Floating Bubble Scanner",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: _floatingBubbleEnabled,
+                            activeThumbColor: Colors.white,
+                            activeTrackColor: ZentraTheme.primaryBlue,
+                            onChanged: (val) => setState(() => _floatingBubbleEnabled = val),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Toggle 2: Local VPN Firewall
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.shield_rounded, color: ZentraTheme.primaryBlue, size: 22),
+                              SizedBox(width: 12),
+                              Text(
+                                "Local VPN Firewall",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: _vpnFirewallEnabled,
+                            activeThumbColor: Colors.white,
+                            activeTrackColor: ZentraTheme.primaryBlue,
+                            onChanged: (val) => setState(() => _vpnFirewallEnabled = val),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Toggle 3: Auto Link Inspection
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.link_rounded, color: ZentraTheme.safeGreen, size: 22),
+                              SizedBox(width: 12),
+                              Text(
+                                "Disguised Link Inspector",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: _autoInspectLinks,
+                            activeThumbColor: Colors.white,
+                            activeTrackColor: ZentraTheme.primaryBlue,
+                            onChanged: (val) => setState(() => _autoInspectLinks = val),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Dropdown: Protection Level
+                      const Text(
+                        "Shield Protection Mode",
+                        style: TextStyle(
+                          color: ZentraTheme.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF070A12).withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: ZentraTheme.surfaceBorder),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedProtectionLevel,
+                            dropdownColor: const Color(0xFF0F172A),
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: ZentraTheme.textSecondary),
+                            isExpanded: true,
+                            items: _protectionLevels.map((String level) {
+                              return DropdownMenuItem<String>(
+                                value: level,
+                                child: Text(
+                                  level,
+                                  style: const TextStyle(color: Colors.white, fontSize: 13.5),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => _selectedProtectionLevel = val);
+                            },
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Continue Action Button (matching media_1789140178332.jpg)
+                      ZentraTheme.buildPrimaryButton(
+                        text: _currentStep == 4 ? "GET STARTED" : "Continue",
+                        onPressed: () {
+                          if (_currentStep < 4) {
+                            setState(() => _currentStep++);
+                          } else {
+                            Navigator.pushReplacement(
+                              context,
+                              SmoothPageRoute(page: const AuthGate()),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStepItem({
+    required int stepNum,
+    required String title,
+    required bool isCompleted,
+    required bool isActive,
+  }) {
+    return Column(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isCompleted || isActive
+                ? const Color(0xFF2563EB)
+                : const Color(0xFF1E293B),
+            border: Border.all(
+              color: isActive
+                  ? const Color(0xFF38BDF8)
+                  : (isCompleted ? const Color(0xFF2563EB) : const Color(0xFF334155)),
+              width: isActive ? 2.5 : 1,
+            ),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.6),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : [],
+          ),
+          child: Center(
+            child: isCompleted
+                ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                : Text(
+                    "$stepNum",
+                    style: TextStyle(
+                      color: isActive || isCompleted ? Colors.white : ZentraTheme.textSecondary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          "Step $stepNum",
+          style: TextStyle(
+            color: isActive ? Colors.white : ZentraTheme.textSecondary,
+            fontSize: 10,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        Text(
+          title,
+          style: TextStyle(
+            color: isActive ? Colors.white : ZentraTheme.textSecondary,
+            fontSize: 11,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepConnector({required bool isCompleted}) {
+    return Expanded(
+      child: Container(
+        height: 2.5,
+        margin: const EdgeInsets.only(bottom: 24),
+        color: isCompleted ? const Color(0xFF2563EB) : const Color(0xFF334155),
       ),
     );
   }

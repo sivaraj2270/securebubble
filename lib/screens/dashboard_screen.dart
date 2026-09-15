@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/hyperlink_threat_engine.dart';
 import '../services/scan_history_database.dart';
 import '../utils/page_routes.dart';
+import '../theme/app_theme.dart';
 import 'auth_gate.dart';
 import 'activity_screen.dart';
 import 'analytics_screen.dart';
@@ -18,8 +19,11 @@ import 'ai_assistant_screen.dart';
 import 'hyperlink_analysis_screen.dart';
 import 'scan_history_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'blocklist_screen.dart';
+import 'firewall_screen.dart';
 import '../models/scan_result.dart';
 import '../models/risk_result.dart';
+import '../models/hyperlink_scan_result.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -34,10 +38,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool isLoading = false;
   int selectedTab = 0;
 
-  int todayScansCount = 12;
-  int threatsDetectedCount = 3;
-  int safeLinksCount = 9;
-  int dangerousLinksCount = 2;
+  final authService = AuthService();
+  int totalScans = 0;
+  int safeCount = 0;
+  int suspiciousCount = 0;
+  int dangerousCount = 0;
 
   @override
   void initState() {
@@ -46,119 +51,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadStats() async {
-    final history = await ScanHistoryDatabase.getScanHistory();
-    if (history.isNotEmpty) {
-      setState(() {
-        todayScansCount = history.length;
-        threatsDetectedCount = history.where((r) => r.status == 'DANGEROUS' || r.status == 'SUSPICIOUS').length;
-        safeLinksCount = history.where((r) => r.status == 'SAFE' || r.status == 'LOW RISK').length;
-        dangerousLinksCount = history.where((r) => r.status == 'DANGEROUS').length;
-      });
-    }
+    final list = await ScanHistoryDatabase.getScanHistory();
+    setState(() {
+      totalScans = list.length;
+      safeCount = list.where((item) => item.status == "SAFE").length;
+      suspiciousCount = list.where((item) => item.status == "SUSPICIOUS" || item.status == "LOW RISK").length;
+      dangerousCount = list.where((item) => item.status == "DANGEROUS" || item.status == "HIGH RISK").length;
+    });
   }
 
-  Future<void> _toggleProtection(bool enable) async {
+  Future<void> toggleBubbleService() async {
     setState(() => isLoading = true);
     try {
-      if (enable) {
-        await platform.invokeMethod("startBubble");
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("NUKEZERO Shield Active • Draggable Floating Assistant Enabled"),
-              backgroundColor: Color(0xFFEF4444),
-            ),
-          );
-        }
-      } else {
+      if (isBubbleActive) {
         await platform.invokeMethod("stopBubble");
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Protection Disabled"),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
+        setState(() => isBubbleActive = false);
+      } else {
+        await platform.invokeMethod("startBubble");
+        setState(() => isBubbleActive = true);
       }
-      setState(() {
-        isBubbleActive = enable;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Service Error: $e"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+    } on PlatformException catch (e) {
+      debugPrint("Failed to toggle service: ${e.message}");
     } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _runHyperlinkEngine() async {
-    setState(() => isLoading = true);
-    try {
-      final scanResult = await HyperlinkThreatEngine.analyzeCurrentScreen();
-      if (mounted) {
-        setState(() => isLoading = false);
-        Navigator.push(
-          context,
-          SmoothPageRoute(page: HyperlinkAnalysisScreen(result: scanResult)),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Hyperlink Engine Error: $e"), backgroundColor: Colors.redAccent),
-        );
-      }
-    }
-  }
-
-  void _onNavTap(int index) {
-    if (index == selectedTab) return;
-    if (index == 1) {
-      Navigator.push(context, SmoothPageRoute(page: const ActivityScreen()));
-    } else if (index == 2) {
-      Navigator.push(context, SmoothPageRoute(page: const AnalyticsScreen()));
-    } else if (index == 3) {
-      Navigator.push(context, SmoothPageRoute(page: const ProfileScreen()));
+      setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final authService = AuthService();
-    final username = (user?.email?.isNotEmpty == true) ? user!.email!.split('@')[0] : "Security Hero";
+    final userName = user?.displayName ?? user?.email?.split('@')[0] ?? 'Agent';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
-      body: SafeArea(
+      backgroundColor: ZentraTheme.background,
+      body: ZentraTheme.buildAmbientBackground(
         child: Column(
           children: [
-            // Top App Bar
+            // Top Zentra Navigation Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.push(context, SmoothPageRoute(page: const ProfileScreen())),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF140C24),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFEF4444)),
-                      ),
-                      child: const Icon(Icons.shield_rounded, color: Color(0xFFEF4444), size: 20),
-                    ),
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: ZentraTheme.primaryBlue.withOpacity(0.2),
+                    child: const Icon(Icons.person, color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -166,14 +103,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Welcome, $username 👋",
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                          "Welcome back,",
+                          style: TextStyle(fontSize: 12, color: ZentraTheme.textSecondary),
                         ),
                         Text(
-                          isBubbleActive ? "Protection: ACTIVE" : "Protection: INACTIVE",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isBubbleActive ? const Color(0xFF4ADE80) : Colors.redAccent,
+                          userName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -181,12 +118,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.history_rounded, color: Colors.white, size: 22),
-                    onPressed: () => Navigator.push(context, SmoothPageRoute(page: const ScanHistoryScreen())),
+                    icon: const Icon(Icons.security_rounded, color: Color(0xFF38BDF8), size: 22),
+                    onPressed: () => Navigator.push(context, SmoothPageRoute(page: const FirewallScreen())),
+                    tooltip: "VPN Firewall",
                   ),
                   IconButton(
-                    icon: const Icon(Icons.privacy_tip_outlined, color: Colors.white, size: 22),
-                    onPressed: () => Navigator.push(context, SmoothPageRoute(page: const PrivacyPolicyScreen())),
+                    icon: const Icon(Icons.block, color: Color(0xFFEF4444), size: 20),
+                    onPressed: () => Navigator.push(context, SmoothPageRoute(page: const BlocklistScreen())),
+                    tooltip: "Blocklist",
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.history_rounded, color: Colors.white, size: 22),
+                    onPressed: () => Navigator.push(context, SmoothPageRoute(page: const ScanHistoryScreen())),
                   ),
                   IconButton(
                     icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
@@ -205,128 +148,121 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Scrollable Content
+            // Scrollable Content Body
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   children: [
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
 
-                    // Hero Radar Shield Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF140C24),
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: const Color(0xFFEF4444)),
-                        boxShadow: [
-                          BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.15), blurRadius: 30, offset: const Offset(0, 10)),
-                        ],
-                      ),
+                    // AI Action Orb Floating Hero Card
+                    ZentraTheme.buildGlassCard(
+                      borderColor: isBubbleActive ? const Color(0xFF38BDF8) : ZentraTheme.surfaceBorder,
                       child: Column(
                         children: [
                           Stack(
                             alignment: Alignment.center,
                             children: [
+                              // Outer Rainbow Ambient Ring
                               Container(
-                                width: 130,
-                                height: 130,
-                                decoration: BoxDecoration(
+                                width: 140,
+                                height: 140,
+                                decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.06),
+                                  gradient: SweepGradient(
+                                    colors: [
+                                      Color(0xFF3B82F6),
+                                      Color(0xFF8B5CF6),
+                                      Color(0xFFF59E0B),
+                                      Color(0xFF10B981),
+                                      Color(0xFF3B82F6),
+                                    ],
+                                  ),
                                 ),
                               ),
+                              // Pitch Black Core Orb Center
                               Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
+                                width: 122,
+                                height: 122,
+                                decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.12),
-                                  border: Border.all(color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.2), width: 1.5),
+                                  color: Color(0xFF060911),
                                 ),
-                              ),
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.2),
-                                  border: Border.all(color: isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: (isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent).withOpacity(0.4),
-                                      blurRadius: 20,
-                                      spreadRadius: 2,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // AI Action Left Capsule Eye
+                                    Container(
+                                      width: 10,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(5),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.white.withOpacity(0.8),
+                                            blurRadius: 10,
+                                            spreadRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    // AI Action Right Capsule Eye
+                                    Container(
+                                      width: 10,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(5),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.white.withOpacity(0.8),
+                                            blurRadius: 10,
+                                            spreadRadius: 2,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
-                                child: Icon(isBubbleActive ? Icons.shield_rounded : Icons.shield_outlined, color: Colors.white, size: 36),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            "NUKEZERO SHIELD",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Protection Status: ${isBubbleActive ? 'ACTIVE' : 'INACTIVE'}",
+
+                          const SizedBox(height: 20),
+
+                          const Text(
+                            "NUKEZERO AI Floating Shield",
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 19,
                               fontWeight: FontWeight.bold,
-                              color: isBubbleActive ? const Color(0xFF4ADE80) : Colors.redAccent,
+                              color: Colors.white,
+                              letterSpacing: 0.4,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            "Autonomous Scan Before You Click • Floating Shield Assistant",
+                          Text(
+                            isBubbleActive
+                                ? "🟢 Autonomous Overlay Active • Tap Orb to Scan"
+                                : "⚪ Protection Inactive • Tap below to enable",
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
-                          ),
-                          const SizedBox(height: 18),
-                          InkWell(
-                            onTap: isLoading ? null : () => _toggleProtection(!isBubbleActive),
-                            borderRadius: BorderRadius.circular(30),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                color: isBubbleActive ? const Color(0xFFEF4444) : Colors.redAccent,
-                                borderRadius: BorderRadius.circular(30),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFEF4444).withOpacity(0.4),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (isLoading) ...[
-                                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
-                                    const SizedBox(width: 12),
-                                  ] else ...[
-                                    Icon(isBubbleActive ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded, color: Colors.white, size: 22),
-                                    const SizedBox(width: 8),
-                                  ],
-                                  Text(
-                                    isBubbleActive ? "DISABLE PROTECTION" : "ENABLE PROTECTION",
-                                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isBubbleActive ? const Color(0xFF4ADE80) : ZentraTheme.textSecondary,
+                              fontWeight: FontWeight.w500,
                             ),
+                          ),
+
+                          const SizedBox(height: 22),
+
+                          ZentraTheme.buildPrimaryButton(
+                            text: isBubbleActive ? "DISABLE PROTECTION" : "ENABLE PROTECTION",
+                            isLoading: isLoading,
+                            icon: isBubbleActive ? Icons.power_settings_new_rounded : Icons.shield_rounded,
+                            onPressed: toggleBubbleService,
                           ),
                         ],
                       ),
@@ -334,239 +270,190 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Today's Scans & Threat Statistics Row
+                    // Security Statistics Overview
                     Row(
                       children: [
-                        _buildStatCard("Today's Scans", "$todayScansCount", const Color(0xFF60A5FA)),
+                        Expanded(child: _buildStatWidget("Total Scans", "$totalScans", const Color(0xFF38BDF8))),
                         const SizedBox(width: 10),
-                        _buildStatCard("Threats", "$threatsDetectedCount", const Color(0xFFF59E0B)),
+                        Expanded(child: _buildStatWidget("Clean Links", "$safeCount", const Color(0xFF4ADE80))),
                         const SizedBox(width: 10),
-                        _buildStatCard("Safe Links", "$safeLinksCount", const Color(0xFF4ADE80)),
-                        const SizedBox(width: 10),
-                        _buildStatCard("Dangerous", "$dangerousLinksCount", const Color(0xFFEF4444)),
+                        Expanded(child: _buildStatWidget("Threats Blocked", "$dangerousCount", const Color(0xFFEF4444))),
                       ],
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                    // NUKEZERO Shield Tools Launchers Grid
+                    // Quick Security Tools Grid
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("NUKEZERO Security Tools", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-                        Text("7 Active Modules", style: TextStyle(fontSize: 12, color: const Color(0xFFEF4444), fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        _buildToolCard(
-                          Icons.link_rounded,
-                          "🔗 Hyperlink Engine",
-                          "Real visible vs actual URL & typosquatting detection",
-                          _runHyperlinkEngine,
-                        ),
-                        _buildToolCard(
-                          Icons.center_focus_strong_rounded,
-                          "⭕ Circle-to-Scan",
-                          "Assistant-style touch region screen selection",
-                          () => Navigator.push(context, SmoothPageRoute(page: const CircleScanScreen())),
-                        ),
-                        _buildToolCard(
-                          Icons.flash_on_rounded,
-                          "⚡ Quick Scan",
-                          "Fast 300ms OCR, QR & reputation lookup",
-                          () => Navigator.push(context, SmoothPageRoute(page: const QuickScanScreen())),
-                        ),
-                        _buildToolCard(
-                          Icons.radar_rounded,
-                          "🔬 Deep Scan",
-                          "Full VirusTotal, Safe Browsing & urlscan.io pipeline",
-                          () => Navigator.push(context, SmoothPageRoute(page: const DeepScanScreen())),
-                        ),
-                        _buildToolCard(
-                          Icons.security_rounded,
-                          "🔐 Privacy Guard",
-                          "Local PII, OTP, email & secret token scanner",
-                          () => Navigator.push(context, SmoothPageRoute(page: const PrivacyGuardScreen())),
-                        ),
-                        _buildToolCard(
-                          Icons.analytics_rounded,
-                          "📄 Forensics Mode",
-                          "Professional investigation report generator",
-                          () {
-                            final dummyScan = ScanResult(
-                              scanId: "SB-2026-0001",
-                              timestamp: DateTime.now(),
-                              scanType: "Forensics Audit",
-                              extractedText: "Swiggy Streaks Suspended. Verify at trycloudflare.com",
-                              qrPayload: "https://trycloudflare.com",
-                              riskResult: RiskResult(
-                                score: 87,
-                                level: RiskLevel.high,
-                                threatIntelScore: 30,
-                                urlReputationScore: 20,
-                                domainSignalsScore: 15,
-                                brandImpersonationScore: 15,
-                                phishingIndicatorsScore: 7,
-                                ocrScamSignalsScore: 0,
-                                primaryRiskFactors: const ["VirusTotal Flagged (7 Vendors)", "Cloudflare Phishing Tunnel", "Brand Impersonation Target: Swiggy"],
-                              ),
-                              aiSummary: "HIGH THREAT WARNING: Severe indicators of phishing and brand impersonation detected.",
-                              aiRecommendation: "🛑 DO NOT open the URL or submit credentials. Close the page immediately.",
-                              confirmedEvidence: const ["VirusTotal API confirmed 7/90 security vendor detections", "Brand Impersonation: Target claiming to be Swiggy"],
-                              privacyAlerts: const ["🔐 PRIVACY ALERT: Authentication token pattern detected."],
-                            );
-                            Navigator.push(context, SmoothPageRoute(page: ForensicsScreen(scanResult: dummyScan)));
-                          },
-                        ),
-                        _buildToolCard(
-                          Icons.psychology_rounded,
-                          "🤖 AI Security Assistant",
-                          "Conversational AI reasoning on threat evidence",
-                          () {
-                            final dummyScan = ScanResult(
-                              scanId: "SB-2026-0002",
-                              timestamp: DateTime.now(),
-                              scanType: "AI Assistant",
-                              extractedText: "Swiggy Streaks Suspended",
-                              qrPayload: "",
-                              riskResult: RiskResult(
-                                score: 87,
-                                level: RiskLevel.high,
-                                threatIntelScore: 30,
-                                urlReputationScore: 20,
-                                domainSignalsScore: 15,
-                                brandImpersonationScore: 15,
-                                phishingIndicatorsScore: 7,
-                                ocrScamSignalsScore: 0,
-                                primaryRiskFactors: const ["Phishing Indicator"],
-                              ),
-                              aiSummary: "High risk phishing attempt.",
-                              aiRecommendation: "Do not open link.",
-                              confirmedEvidence: const ["Phishing Domain"],
-                              privacyAlerts: const [],
-                            );
-                            Navigator.push(context, SmoothPageRoute(page: AiAssistantScreen(scanResult: dummyScan)));
-                          },
+                      children: const [
+                        Text(
+                          "Cyber Analysis Tools",
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 14),
 
-                    const SizedBox(height: 30),
+                    _buildToolTile(
+                      context,
+                      title: "Manual URL Scanner",
+                      subtitle: "Inspect links, IP addresses & domain spoofing",
+                      icon: Icons.link_rounded,
+                      color: const Color(0xFF38BDF8),
+                      onTap: () {
+                        final dummyScan = HyperlinkScanResult(
+                          visibleText: "Inspect URL",
+                          actualUrl: "https://example.com",
+                          normalizedUrl: "https://example.com",
+                          finalUrl: "https://example.com",
+                          sourceApp: "Manual Scanner",
+                          visibleDomain: "example.com",
+                          actualDomain: "example.com",
+                          domainMatch: true,
+                          https: true,
+                          ipBased: false,
+                          punycode: false,
+                          typosquatting: false,
+                          obfuscated: false,
+                          shortened: false,
+                          redirectDetected: false,
+                          detectionType: "MANUAL_SCAN",
+                          riskLevel: "SAFE",
+                          confidence: 1.0,
+                          reasons: ["Ready to scan custom input."],
+                        );
+                        Navigator.push(context, SmoothPageRoute(page: HyperlinkAnalysisScreen(result: dummyScan)));
+                      },
+                    ),
+                    const SizedBox(height: 10),
+
+                    _buildToolTile(
+                      context,
+                      title: "QR Code Lens Scanner",
+                      subtitle: "Decode payment QR payloads & logo-centered QR codes",
+                      icon: Icons.qr_code_scanner_rounded,
+                      color: const Color(0xFF8B5CF6),
+                      onTap: () => Navigator.push(context, SmoothPageRoute(page: const CircleScanScreen())),
+                    ),
+                    const SizedBox(height: 10),
+
+                    _buildToolTile(
+                      context,
+                      title: "Deep VirusTotal Cloud Scan",
+                      subtitle: "Query 90+ antivirus security vendor engines",
+                      icon: Icons.biotech_rounded,
+                      color: const Color(0xFFF59E0B),
+                      onTap: () => Navigator.push(context, SmoothPageRoute(page: const DeepScanScreen())),
+                    ),
+                    const SizedBox(height: 10),
+
+                    _buildToolTile(
+                      context,
+                      title: "AI Cyber Assistant",
+                      subtitle: "Ask questions & learn scam defense strategies",
+                      icon: Icons.psychology_rounded,
+                      color: const Color(0xFF10B981),
+                      onTap: () {
+                        final dummyScanResult = ScanResult(
+                          scanId: "ai_1",
+                          timestamp: DateTime.now(),
+                          scanType: "AI Assistant",
+                          extractedText: "System Protection",
+                          qrPayload: "",
+                          riskResult: RiskResult(
+                            score: 5,
+                            level: RiskLevel.low,
+                            threatIntelScore: 0,
+                            urlReputationScore: 0,
+                            domainSignalsScore: 0,
+                            brandImpersonationScore: 0,
+                            phishingIndicatorsScore: 0,
+                            ocrScamSignalsScore: 0,
+                            primaryRiskFactors: ["AI Protection Active"],
+                          ),
+                          aiSummary: "AI Cyber Protection is active.",
+                          aiRecommendation: "Proceed with standard awareness.",
+                          confirmedEvidence: [],
+                          privacyAlerts: [],
+                        );
+                        Navigator.push(context, SmoothPageRoute(page: AiAssistantScreen(scanResult: dummyScanResult)));
+                      },
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
-
-            // Bottom Navigation Bar
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF140C24),
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: const Color(0xFF2E1E4E)),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8)),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(Icons.home_rounded, "Home", 0),
-                  _buildNavItem(Icons.swap_horiz_rounded, "Activity", 1),
-                  GestureDetector(
-                    onTap: () => _toggleProtection(!isBubbleActive),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Color(0xFFEF4444), blurRadius: 12, offset: Offset(0, 4))],
-                      ),
-                      child: const Icon(Icons.shield_rounded, color: Colors.white, size: 24),
-                    ),
-                  ),
-                  _buildNavItem(Icons.pie_chart_outline_rounded, "Analytics", 2),
-                  _buildNavItem(Icons.person_outline_rounded, "Profile", 3),
-                ],
-              ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF140C24),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF2E1E4E)),
-        ),
-        child: Column(
-          children: [
-            Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 2),
-            Text(label, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 10, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToolCard(IconData icon, String title, String subtitle, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: (MediaQuery.of(context).size.width - 50) / 2,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF140C24),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF2E1E4E)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: const Color(0xFFEF4444), size: 22),
-            const SizedBox(height: 10),
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11, height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isSelected = selectedTab == index;
-    return GestureDetector(
-      onTap: () => _onNavTap(index),
+  Widget _buildStatWidget(String label, String value, Color accentColor) {
+    return ZentraTheme.buildGlassCard(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      borderColor: accentColor.withOpacity(0.3),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: isSelected ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF), size: 22),
-          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: accentColor),
+          ),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
-            ),
+            style: TextStyle(fontSize: 11, color: ZentraTheme.textSecondary),
+            textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildToolTile(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ZentraTheme.buildGlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: ZentraTheme.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF64748B), size: 16),
+          ],
+        ),
       ),
     );
   }

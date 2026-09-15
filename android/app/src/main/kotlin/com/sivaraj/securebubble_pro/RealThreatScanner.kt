@@ -53,8 +53,8 @@ class RealThreatScanner {
                 val conn = vtUrl.openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("x-apikey", virusTotalApiKey)
-                conn.connectTimeout = 3500
-                conn.readTimeout = 3500
+                conn.connectTimeout = 1800
+                conn.readTimeout = 1800
 
                 if (conn.responseCode == 200) {
                     val reader = BufferedReader(InputStreamReader(conn.inputStream))

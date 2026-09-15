@@ -30,6 +30,7 @@ class PopupManager(private val context: Context) {
     private var popupView: View? = null
 
     fun removePopup() {
+        progressRunnable?.let { progressHandler?.removeCallbacks(it) }
         popupView?.let {
             try {
                 windowManager.removeView(it)
@@ -289,7 +290,10 @@ class PopupManager(private val context: Context) {
         }
     }
 
-    fun showScanningProgress(onComplete: () -> Unit) {
+    private var progressHandler: Handler? = null
+    private var progressRunnable: Runnable? = null
+
+    fun showScanningProgress() {
         removePopup()
 
         val density = context.resources.displayMetrics.density
@@ -297,40 +301,49 @@ class PopupManager(private val context: Context) {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding((28 * density).toInt(), (24 * density).toInt(), (28 * density).toInt(), (24 * density).toInt())
+            setPadding((32 * density).toInt(), (28 * density).toInt(), (32 * density).toInt(), (28 * density).toInt())
         }
 
         val cardBg = GradientDrawable().apply {
-            setColor(Color.parseColor("#140C24"))
+            setColor(Color.parseColor("#0F172A"))
             cornerRadius = 24 * density
-            setStroke((1.5 * density).toInt(), Color.parseColor("#EF4444"))
+            setStroke((1.5 * density).toInt(), Color.parseColor("#2563EB"))
         }
         container.background = cardBg
 
         val progressBar = ProgressBar(context).apply {
-            indeterminateTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#EF4444"))
+            indeterminateTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#38BDF8"))
         }
 
-        val statusText = TextView(context).apply {
-            text = "🛡 NUKEZERO Shield • Capturing Screen..."
+        val headerText = TextView(context).apply {
+            text = "🛡 SecureBubble AI Threat Engine"
             setTextColor(Color.WHITE)
-            textSize = 13.5f
+            textSize = 15f
             paint.isFakeBoldText = true
             setPadding(0, (14 * density).toInt(), 0, (4 * density).toInt())
         }
 
-        val subStatusText = TextView(context).apply {
-            text = "Analyzing active window pixels & links..."
-            setTextColor(Color.parseColor("#9CA3AF"))
+        val statusText = TextView(context).apply {
+            text = "📸 Capturing screen pixels & UI text..."
+            setTextColor(Color.parseColor("#38BDF8"))
+            textSize = 13f
+            paint.isFakeBoldText = true
+            setPadding(0, 0, 0, (4 * density).toInt())
+        }
+
+        val timerText = TextView(context).apply {
+            text = "Scanning in progress... (01s / 15s)"
+            setTextColor(Color.parseColor("#94A3B8"))
             textSize = 11.5f
         }
 
         container.addView(progressBar)
+        container.addView(headerText)
         container.addView(statusText)
-        container.addView(subStatusText)
+        container.addView(timerText)
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            (context.resources.displayMetrics.widthPixels * 0.85).toInt(),
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -349,24 +362,24 @@ class PopupManager(private val context: Context) {
             e.printStackTrace()
         }
 
-        val handler = Handler(Looper.getMainLooper())
-
-        // Animated Scanning Steps Sequence
-        handler.postDelayed({
-            statusText.text = "📷 Reading OCR & QR Barcode Payloads..."
-        }, 250)
-
-        handler.postDelayed({
-            statusText.text = "🔬 Querying VirusTotal & Phishing Engine..."
-        }, 500)
-
-        handler.postDelayed({
-            statusText.text = "⚡ Computing 0-100 Risk Score..."
-        }, 750)
-
-        handler.postDelayed({
-            onComplete()
-        }, 950)
+        // Fast 5-7s Stage Progress & Timer Handler
+        var elapsedSec = 1
+        progressHandler = Handler(Looper.getMainLooper())
+        progressRunnable = object : Runnable {
+            override fun run() {
+                elapsedSec++
+                if (elapsedSec <= 6) {
+                    timerText.text = "Scanning in progress... (${String.format("%02d", elapsedSec)}s / 06s)"
+                    when (elapsedSec) {
+                        2 -> statusText.text = "🔍 Extracting hyperlinks & decoding QR codes..."
+                        4 -> statusText.text = "🌐 Querying Threat Engines & VirusTotal..."
+                        5 -> statusText.text = "⚡ Evaluating Risk Score & safety report..."
+                    }
+                    progressHandler?.postDelayed(this, 1000)
+                }
+            }
+        }
+        progressHandler?.postDelayed(progressRunnable!!, 1000)
     }
 
     fun showThreatReport(report: RealScanReport) {
@@ -382,12 +395,10 @@ class PopupManager(private val context: Context) {
             setPadding((20 * density).toInt(), (18 * density).toInt(), (20 * density).toInt(), (18 * density).toInt())
         }
 
-        val threatColor = when (report.threatLevel.uppercase()) {
-            "DANGEROUS" -> Color.parseColor("#EF4444")
-            "HIGH RISK" -> Color.parseColor("#EF4444")
-            "SUSPICIOUS" -> Color.parseColor("#F59E0B")
-            "MEDIUM RISK" -> Color.parseColor("#F59E0B")
-            "LOW RISK" -> Color.parseColor("#60A5FA")
+        val threatColor = when {
+            report.threatScore >= 80 || report.threatLevel.uppercase() == "DANGEROUS" -> Color.parseColor("#EF4444")
+            report.threatScore >= 50 || report.threatLevel.uppercase() == "SUSPICIOUS" -> Color.parseColor("#F59E0B")
+            report.threatScore >= 20 || report.threatLevel.uppercase() == "LOW RISK" -> Color.parseColor("#60A5FA")
             else -> Color.parseColor("#4ADE80")
         }
 
@@ -419,10 +430,10 @@ class PopupManager(private val context: Context) {
             cornerRadius = 8 * density
         }
 
-        val pillIcon = when (report.threatLevel.uppercase()) {
-            "DANGEROUS" -> "🔴"
-            "SUSPICIOUS" -> "🟡"
-            "LOW RISK" -> "🔵"
+        val pillIcon = when {
+            report.threatScore >= 80 -> "🔴"
+            report.threatScore >= 50 -> "🟡"
+            report.threatScore >= 20 -> "🔵"
             else -> "🟢"
         }
         val pillLabel = "$pillIcon ${report.threatLevel.uppercase()} (Score: ${report.threatScore}/100)"
@@ -435,6 +446,7 @@ class PopupManager(private val context: Context) {
             background = badgeBg
             setPadding((6 * density).toInt(), (4 * density).toInt(), (6 * density).toInt(), (4 * density).toInt())
         }
+
         badgeRow.addView(badgeText)
         container.addView(badgeRow)
 
@@ -531,12 +543,12 @@ class PopupManager(private val context: Context) {
         recBox.addView(recText)
         container.addView(recBox)
 
-        // Scam Emergency Response Button (if threat is detected)
-        if (report.threatLevel.uppercase() != "SAFE") {
-            val emgBtn = Button(context).apply {
-                text = "🚨 SCAM EMERGENCY RESPONSE MODE"
+        // BLOCK DOMAIN Option (shown for Risk Score >= 80 or any Threat)
+        if (report.threatScore >= 80 || report.threatLevel.uppercase() != "SAFE") {
+            val blockBtn = Button(context).apply {
+                text = "🚫 BLOCK THIS DOMAIN PERMANENTLY"
                 setTextColor(Color.WHITE)
-                textSize = 12f
+                textSize = 12.5f
                 paint.isFakeBoldText = true
                 val btnBg = GradientDrawable().apply {
                     setColor(Color.parseColor("#EF4444"))
@@ -544,10 +556,21 @@ class PopupManager(private val context: Context) {
                 }
                 background = btnBg
                 setOnClickListener {
-                    Toast.makeText(context, "Emergency Shield Lock Activated", Toast.LENGTH_SHORT).show()
+                    val targetUrl = if (report.originalUrl.isNotEmpty()) report.originalUrl else report.decodedUrl
+                    val domain = BlockedDomainManager.normalizeDomain(targetUrl)
+                    if (domain.isNotEmpty()) {
+                        BlockedDomainManager.getInstance(context).addDomain(
+                            domain,
+                            "User Blocked via SecureBubble Overlay Report",
+                            report.threatScore,
+                            "USER_BLOCKED"
+                        )
+                        Toast.makeText(context, "🚫 Domain $domain added to Blocklist", Toast.LENGTH_LONG).show()
+                    }
+                    removePopup()
                 }
             }
-            container.addView(emgBtn)
+            container.addView(blockBtn)
         }
 
         // Action Buttons Row

@@ -15,12 +15,12 @@ object URLDecoderHelper {
 
         try {
             var connCount = 0
-            while (connCount < 5) {
+            while (connCount < 3) {
                 val url = URL(currentUrl)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.instanceFollowRedirects = false
-                conn.connectTimeout = 3000
-                conn.readTimeout = 3000
+                conn.connectTimeout = 1200
+                conn.readTimeout = 1200
                 conn.requestMethod = "HEAD"
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
 

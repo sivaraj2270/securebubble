@@ -198,9 +198,8 @@ class BubbleManager(private val context: Context) {
                 executeScreenScan(linkDetector, threatScanner)
             },
             onScanCustomText = { customText ->
-                popupManager.showScanningProgress {
-                    runScanThread(customText, linkDetector, threatScanner)
-                }
+                popupManager.showScanningProgress()
+                runScanThread(customText, linkDetector, threatScanner)
             },
             onCancel = {
                 Toast.makeText(context, "Scan Canceled", Toast.LENGTH_SHORT).show()
@@ -209,14 +208,15 @@ class BubbleManager(private val context: Context) {
     }
 
     private fun executeScreenScan(linkDetector: LinkDetector, threatScanner: RealThreatScanner) {
-        // Step 1: Remove all existing popups immediately to un-obscure the screen
-        popupManager.removePopup()
+        // Step 1: Immediately display the 10-15s animated scanning overlay card
+        popupManager.showScanningProgress()
 
         // Clear stale cached text from previous scans
         ScreenTextHolder.text = ""
 
         val accService = SecureBubbleAccessibilityService.instance
         if (accService == null) {
+            popupManager.removePopup()
             Toast.makeText(
                 context,
                 "Please enable NUKEZERO Shield under Accessibility -> Installed Apps",
@@ -236,47 +236,42 @@ class BubbleManager(private val context: Context) {
         // Fetch all screen links from accessibility tree
         val allNodeLinks = accService.getAllScreenLinks().joinToString(" ")
 
-        // Step 2: Delay 80ms to allow WindowManager to clear the popup overlays from screen, then capture clean screen
-        Handler(Looper.getMainLooper()).postDelayed({
-            accService.captureScreen { bitmap: Bitmap? ->
-                if (bitmap != null) {
-                    popupManager.showScanningProgress {
-                        qrManager.scanQr(
+        accService.captureScreen { bitmap: Bitmap? ->
+            if (bitmap != null) {
+                qrManager.scanQr(
+                    bitmap,
+                    onSuccess = { qrPayloads ->
+                        ocrManager.readText(
                             bitmap,
-                            onSuccess = { qrPayloads ->
-                                ocrManager.readText(
-                                    bitmap,
-                                    onSuccess = { ocrText ->
-                                        val qrText = qrPayloads.joinToString(" ")
-                                        val combined = "$qrText $ocrText $allNodeLinks".trim()
-                                        runScanThread(combined, linkDetector, threatScanner)
-                                    },
-                                    onFailure = {
-                                        val qrText = qrPayloads.joinToString(" ")
-                                        val combined = "$qrText $allNodeLinks".trim()
-                                        runScanThread(combined, linkDetector, threatScanner)
-                                    }
-                                )
+                            onSuccess = { ocrText ->
+                                val qrText = qrPayloads.joinToString(" ")
+                                val combined = "$qrText $ocrText $allNodeLinks".trim()
+                                runScanThread(combined, linkDetector, threatScanner)
                             },
                             onFailure = {
-                                ocrManager.readText(
-                                    bitmap,
-                                    onSuccess = { ocrText ->
-                                        val combined = "$ocrText $allNodeLinks".trim()
-                                        runScanThread(combined, linkDetector, threatScanner)
-                                    },
-                                    onFailure = {
-                                        fallbackScan(allNodeLinks, linkDetector, threatScanner)
-                                    }
-                                )
+                                val qrText = qrPayloads.joinToString(" ")
+                                val combined = "$qrText $allNodeLinks".trim()
+                                runScanThread(combined, linkDetector, threatScanner)
+                            }
+                        )
+                    },
+                    onFailure = {
+                        ocrManager.readText(
+                            bitmap,
+                            onSuccess = { ocrText ->
+                                val combined = "$ocrText $allNodeLinks".trim()
+                                runScanThread(combined, linkDetector, threatScanner)
+                            },
+                            onFailure = {
+                                fallbackScan(allNodeLinks, linkDetector, threatScanner)
                             }
                         )
                     }
-                } else {
-                    fallbackScan(allNodeLinks, linkDetector, threatScanner)
-                }
+                )
+            } else {
+                fallbackScan(allNodeLinks, linkDetector, threatScanner)
             }
-        }, 80)
+        }
     }
 
     private fun fallbackScan(allNodeLinks: String, linkDetector: LinkDetector, threatScanner: RealThreatScanner) {
