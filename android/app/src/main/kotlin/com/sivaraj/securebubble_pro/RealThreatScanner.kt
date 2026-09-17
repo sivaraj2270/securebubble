@@ -21,7 +21,7 @@ data class RealScanReport(
 
 class RealThreatScanner {
 
-    private val virusTotalApiKey = "f6d8955146607e4c73df66750ae2e4d0d08e5a6ef675661b1ee880cfb8c340d8"
+    private val virusTotalApiKey = "YOUR_VIRUSTOTAL_API_KEY_HERE"
     private val linkDetector = LinkDetector()
 
     fun performRealScan(rawText: String, urls: List<String>): RealScanReport {

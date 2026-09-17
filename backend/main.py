@@ -21,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "f6d8955146607e4c73df66750ae2e4d0d08e5a6ef675661b1ee880cfb8c340d8")
+VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "YOUR_VIRUSTOTAL_API_KEY_HERE")
 
 # Request Models
 class UrlAnalysisRequest(BaseModel):
