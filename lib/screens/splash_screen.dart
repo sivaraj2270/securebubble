@@ -87,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                   const SizedBox(width: 10),
                   const Text(
-                    "SecureBubble AI",
+                    "NukeZero",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 28,

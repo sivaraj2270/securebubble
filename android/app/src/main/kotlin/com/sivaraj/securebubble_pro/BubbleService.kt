@@ -17,11 +17,11 @@ class BubbleService : Service() {
         notificationHelper.createNotificationChannel()
         val notification = notificationHelper.createNotification()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NotificationHelper.NOTIFICATION_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             )
         } else {
             startForeground(NotificationHelper.NOTIFICATION_ID, notification)

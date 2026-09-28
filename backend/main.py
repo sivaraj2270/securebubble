@@ -7,10 +7,12 @@ import re
 import base64
 from typing import List, Optional
 
+from backend.routes import scan, auth, admin, admin_portal, dns, admin_dns
+
 app = FastAPI(
     title="SecureBubble AI / NUKEZERO SHIELD — Threat Intelligence Platform",
-    description="Defensive Cybersecurity Platform & Threat Intelligence API",
-    version="3.0.0"
+    description="Defensive Cybersecurity Platform & Technitium DNS Threat Intelligence API",
+    version="3.5.0"
 )
 
 app.add_middleware(
@@ -20,6 +22,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register Dual URL Verification, Technitium DNS, Admin Auth, Operations, and Web Portal Routers
+app.include_router(scan.router)
+app.include_router(dns.router)
+app.include_router(auth.router)
+app.include_router(admin.router)
+app.include_router(admin_dns.router)
+app.include_router(admin_portal.router)
 
 VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "YOUR_VIRUSTOTAL_API_KEY_HERE")
 
@@ -51,7 +61,9 @@ def read_root():
         "platform": "SecureBubble AI / NUKEZERO SHIELD",
         "status": "ONLINE",
         "philosophy": "SCAN BEFORE YOU CLICK",
-        "architecture": "Detect -> Analyze -> Explain -> Score -> Warn -> Protect"
+        "technitium_dns": "/api/v1/dns/status",
+        "architecture": "Detect -> Analyze -> Explain -> Score -> Warn -> Technitium DNS Protect",
+        "dual_url_verification": "/api/v1/scan/url"
     }
 
 @app.post("/api/v1/analyze/url", response_model=AnalysisResponse)

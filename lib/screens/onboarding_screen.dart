@@ -34,11 +34,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           children: [
             const SizedBox(height: 24),
             // Header Title
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
-                  Text(
+                  const Text(
                     "Welcome to SecureBubble AI",
                     style: TextStyle(
                       color: Colors.white,
@@ -46,7 +46,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
                   Text(
                     "Set up your security preferences for real-time protection",
                     style: TextStyle(
@@ -173,7 +173,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       const SizedBox(height: 24),
 
                       // Dropdown: Protection Level
-                      const Text(
+                      Text(
                         "Shield Protection Mode",
                         style: TextStyle(
                           color: ZentraTheme.textSecondary,
@@ -195,7 +195,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: DropdownButton<String>(
                             value: _selectedProtectionLevel,
                             dropdownColor: const Color(0xFF0F172A),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: ZentraTheme.textSecondary),
+                            icon: Icon(Icons.keyboard_arrow_down_rounded, color: ZentraTheme.textSecondary),
                             isExpanded: true,
                             items: _protectionLevels.map((String level) {
                               return DropdownMenuItem<String>(

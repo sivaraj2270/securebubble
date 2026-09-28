@@ -2,8 +2,11 @@ package com.sivaraj.securebubble_pro
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
+import android.provider.Settings
+import android.widget.Toast
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -29,19 +32,42 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
 
                 "startBubble" -> {
-                    val intent = Intent(this, BubbleService::class.java)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        startService(intent)
+                    // Check if SYSTEM_ALERT_WINDOW permission is granted
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                        Toast.makeText(this, "Please grant Overlay Permission for SecureBubble", Toast.LENGTH_LONG).show()
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+                        startActivity(intent)
+                        result.success(false)
+                        return@MethodCallHandler
                     }
-                    result.success(true)
+
+                    try {
+                        val intent = Intent(this, BubbleService::class.java)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                        result.success(true)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        Toast.makeText(this, "Error starting overlay service: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                        result.success(false)
+                    }
                 }
 
                 "stopBubble" -> {
-                    val intent = Intent(this, BubbleService::class.java)
-                    stopService(intent)
-                    result.success(true)
+                    try {
+                        val intent = Intent(this, BubbleService::class.java)
+                        stopService(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        result.success(false)
+                    }
                 }
 
                 "scanHyperlink", "startScreenScan" -> {

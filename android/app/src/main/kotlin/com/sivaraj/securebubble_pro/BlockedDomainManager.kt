@@ -10,7 +10,7 @@ data class BlockedDomainInfo(
     val domain: String,
     val reason: String,
     val riskScore: Int,
-    val source: String, // "USER_BLOCKED", "AI_BLOCKED", "THREAT_INTELLIGENCE_BLOCKED"
+    val source: String, // "USER_BLOCKED", "ADMIN_BLOCKED", "THREAT_INTELLIGENCE_BLOCKED"
     val blockedAt: String
 )
 
@@ -41,10 +41,7 @@ class BlockedDomainManager(private val context: Context) {
                 if (host.startsWith("www.")) {
                     host = host.substring(4)
                 }
-                val parts = host.split(".")
-                if (parts.size >= 2) {
-                    parts.takeLast(2).joinToString(".")
-                } else host
+                host
             } catch (e: Exception) {
                 input.trim().lowercase()
                     .replace(Regex("^(https?://)?(www\\.)?"), "")
@@ -58,7 +55,7 @@ class BlockedDomainManager(private val context: Context) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     @Synchronized
-    fun addDomain(rawDomainOrUrl: String, reason: String = "Possible Phishing", riskScore: Int = 94, source: String = "USER_BLOCKED"): Boolean {
+    fun addDomain(rawDomainOrUrl: String, reason: String = "Phishing Target", riskScore: Int = 94, source: String = "USER_BLOCKED"): Boolean {
         val domain = normalizeDomain(rawDomainOrUrl)
         if (domain.isBlank()) return false
 
@@ -91,6 +88,11 @@ class BlockedDomainManager(private val context: Context) {
         return removed
     }
 
+    /**
+     * Label-Boundary Aware Domain Matching (AGENTS.md Rule 9 & Section 25).
+     * Matches 'example.com', 'www.example.com', 'login.example.com'.
+     * Rejects 'example.com.evil.com'.
+     */
     fun isBlocked(rawDomainOrUrl: String): Boolean {
         if (rawDomainOrUrl.isBlank()) return false
         val targetHost = extractHostName(rawDomainOrUrl)
@@ -100,7 +102,6 @@ class BlockedDomainManager(private val context: Context) {
 
         for (item in blockedList) {
             val blockedDomain = item.domain.lowercase()
-            // Exact match or subdomain match (e.g. www.fakebank.com or login.fakebank.com matches fakebank.com)
             if (targetHost == blockedDomain || targetHost.endsWith(".$blockedDomain")) {
                 return true
             }

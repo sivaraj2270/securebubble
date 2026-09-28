@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../models/hyperlink_result.dart';
-import 'url_extractor.dart';
 
 class HyperlinkService {
   static const platform = MethodChannel("nukezero/service");

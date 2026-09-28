@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'admin_service.dart';
 
 class BlockedItem {
   final String url;
@@ -40,10 +43,30 @@ class BlockedItem {
 
 class BlocklistService {
   static const String _filename = "securebubble_blocklist.json";
+  static const platform = MethodChannel("nukezero/service");
 
   static Future<File> _getFile() async {
     final dir = await getApplicationDocumentsDirectory();
     return File('${dir.path}/$_filename');
+  }
+
+  /// Synchronizes all saved blocklist items to native Android BlockedDomainManager
+  /// and ensures system-wide DNS blocking is active.
+  static Future<void> syncNativeBlocklist() async {
+    try {
+      final list = await getBlocklist();
+      for (final item in list) {
+        final domain = extractDomain(item.domain.isNotEmpty ? item.domain : item.url);
+        await platform.invokeMethod("addBlockedDomain", {
+          "domain": domain,
+          "reason": item.threatReason,
+          "riskScore": item.riskScore,
+          "source": "USER_BLOCKED",
+        });
+      }
+    } catch (e) {
+      debugPrint("Error syncing native blocklist: $e");
+    }
   }
 
   static Future<List<BlockedItem>> getBlocklist() async {
@@ -64,6 +87,14 @@ class BlocklistService {
   static Future<bool> isBlocked(String rawUrl) async {
     if (rawUrl.isEmpty) return false;
     final domain = extractDomain(rawUrl);
+
+    // 1. Check native Android BlockedDomainManager first
+    try {
+      final bool nativeBlocked = await platform.invokeMethod("isDomainBlocked", {"domain": domain});
+      if (nativeBlocked) return true;
+    } catch (_) {}
+
+    // 2. Check local JSON storage
     final list = await getBlocklist();
     return list.any((item) =>
       item.url.toLowerCase() == rawUrl.toLowerCase() ||
@@ -71,11 +102,12 @@ class BlocklistService {
     );
   }
 
+  /// Blocks a URL and domain system-wide across all mobile phone applications and browsers.
   static Future<void> blockUrl(String url, int riskScore, String reason) async {
     final list = await getBlocklist();
     final domain = extractDomain(url);
 
-    // Prevent duplicates
+    // 1. Save to local JSON storage
     if (!list.any((item) => item.domain.toLowerCase() == domain.toLowerCase())) {
       list.add(BlockedItem(
         url: url,
@@ -86,6 +118,32 @@ class BlocklistService {
       ));
       final file = await _getFile();
       await file.writeAsString(jsonEncode(list.map((i) => i.toJson()).toList()));
+    }
+
+    // 2. Add domain natively to Android BlockedDomainManager for system-wide DNS interception
+    try {
+      await platform.invokeMethod("addBlockedDomain", {
+        "domain": domain,
+        "reason": reason,
+        "riskScore": riskScore,
+        "source": "USER_BLOCKED",
+      });
+    } catch (e) {
+      debugPrint("Failed to add native blocked domain: $e");
+    }
+
+    // 3. Ensure Local VPN DNS Firewall Service is active so browsers cannot resolve the domain
+    try {
+      await platform.invokeMethod("startVpn");
+    } catch (e) {
+      debugPrint("Failed to start VPN firewall: $e");
+    }
+
+    // 4. Sync block rule with Technitium DNS server backend
+    try {
+      await AdminService().blockDomain(domain, reason: reason);
+    } catch (e) {
+      debugPrint("Failed to block domain on Technitium DNS: $e");
     }
   }
 
@@ -98,6 +156,20 @@ class BlocklistService {
     );
     final file = await _getFile();
     await file.writeAsString(jsonEncode(list.map((i) => i.toJson()).toList()));
+
+    // 1. Remove from native Android BlockedDomainManager
+    try {
+      await platform.invokeMethod("removeBlockedDomain", {"domain": domain});
+    } catch (e) {
+      debugPrint("Failed to remove native blocked domain: $e");
+    }
+
+    // 2. Unblock on Technitium DNS server backend
+    try {
+      await AdminService().unblockDomain(domain);
+    } catch (e) {
+      debugPrint("Failed to unblock domain on Technitium DNS: $e");
+    }
   }
 
   static Future<void> clearBlocklist() async {
@@ -107,6 +179,13 @@ class BlocklistService {
         await file.delete();
       }
     } catch (_) {}
+
+    // Clear native Android BlockedDomainManager
+    try {
+      await platform.invokeMethod("clearBlockedDomains");
+    } catch (e) {
+      debugPrint("Failed to clear native blocked domains: $e");
+    }
   }
 
   static String extractDomain(String input) {

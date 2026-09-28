@@ -90,7 +90,19 @@ class SecureBubbleVpnService : VpnService(), Runnable {
             builder.setSession("NUKEZERO Shield Local Firewall")
                 .addAddress("10.1.10.1", 24)
                 .addDnsServer("10.1.10.1")
+                .addDnsServer("8.8.8.8")
                 .addRoute("10.1.10.1", 32)
+                .addRoute("8.8.8.8", 32)
+                .addRoute("8.8.4.4", 32)
+                .addRoute("1.1.1.1", 32)
+                .addRoute("1.0.0.1", 32)
+                .addRoute("9.9.9.9", 32)
+
+            try {
+                builder.addDisallowedApplication(packageName)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not set disallowed application: ${e.message}")
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 builder.setMetered(false)

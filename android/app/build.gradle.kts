@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.sivaraj.securebubble_pro"
-    compileSdk = 35
+    compileSdk = 36
     buildToolsVersion = "36.0.0"
     ndkVersion = flutter.ndkVersion
 
@@ -22,7 +22,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

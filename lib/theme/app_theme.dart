@@ -1,83 +1,104 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
 
 class ZentraTheme {
-  // Deep Midnight Obsidian Color Palette
-  static const Color background = Color(0xFF070A12);
-  static const Color surfaceCard = Color(0xFF0F172A);
-  static const Color surfaceBorder = Color(0xFF1E293B);
-  
-  // Electric Blue & Cyan Accents
+  static bool get isDark => themeNotifier.value == ThemeMode.dark;
+
+  // Dynamic Colors based on active themeMode
+  static Color get background => isDark ? const Color(0xFF070A12) : const Color(0xFFF1F5F9);
+  static Color get surfaceCard => isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF);
+  static Color get surfaceBorder => isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+
+  // Royal Blue & Primary Accents
   static const Color primaryBlue = Color(0xFF2563EB);
   static const Color accentCyan = Color(0xFF38BDF8);
   static const Color accentPurple = Color(0xFF8B5CF6);
-  
+
   // Status Colors
-  static const Color safeGreen = Color(0xFF4ADE80);
+  static const Color safeGreen = Color(0xFF10B981);
   static const Color warningAmber = Color(0xFFF59E0B);
   static const Color dangerRed = Color(0xFFEF4444);
 
-  // Typography
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFF94A3B8);
+  // Dynamic Text Colors
+  static Color get textPrimary => isDark ? Colors.white : const Color(0xFF0F172A);
+  static Color get textSecondary => isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
-  // Zentra Glassmorphic Ambient Mesh Container
+  // Ambient Background that reacts dynamically to Light/Dark Mode
   static Widget buildAmbientBackground({required Widget child}) {
-    return Stack(
-      children: [
-        Container(color: background),
-        
-        // Top Left Ambient Blue Aura Glow (RepaintBoundary cached for 60fps performance)
-        Positioned(
-          top: -100,
-          left: -80,
-          child: RepaintBoundary(
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    Color(0x3B2563EB),
-                    Color(0x1A38BDF8),
-                    Color(0x00070A12),
-                  ],
-                  stops: [0.0, 0.5, 1.0],
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, mode, _) {
+        final dark = mode == ThemeMode.dark;
+        return Stack(
+          children: [
+            Container(color: dark ? const Color(0xFF070A12) : const Color(0xFFF1F5F9)),
+
+            // Top Left Soft Aura
+            Positioned(
+              top: -120,
+              left: -80,
+              child: RepaintBoundary(
+                child: Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: dark
+                          ? [
+                              const Color(0x352563EB),
+                              const Color(0x153B82F6),
+                              const Color(0x00070A12),
+                            ]
+                          : [
+                              const Color(0x252563EB),
+                              const Color(0x103B82F6),
+                              const Color(0x00F1F5F9),
+                            ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
 
-        // Bottom Right Ambient Purple Aura Glow (RepaintBoundary cached)
-        Positioned(
-          bottom: -80,
-          right: -60,
-          child: RepaintBoundary(
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    Color(0x308B5CF6),
-                    Color(0x153B82F6),
-                    Color(0x00070A12),
-                  ],
-                  stops: [0.0, 0.5, 1.0],
+            // Bottom Right Soft Aura
+            Positioned(
+              bottom: -100,
+              right: -60,
+              child: RepaintBoundary(
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: dark
+                          ? [
+                              const Color(0x253B82F6),
+                              const Color(0x108B5CF6),
+                              const Color(0x00070A12),
+                            ]
+                          : [
+                              const Color(0x203B82F6),
+                              const Color(0x082563EB),
+                              const Color(0x00F1F5F9),
+                            ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
 
-        SafeArea(child: child),
-      ],
+            SafeArea(child: child),
+          ],
+        );
+      },
     );
   }
 
-  // Zentra Action Button with Electric Blue Gradient
+  // Primary Royal Blue Button
   static Widget buildPrimaryButton({
     required String text,
     required VoidCallback onPressed,
@@ -86,17 +107,17 @@ class ZentraTheme {
   }) {
     return Container(
       width: double.infinity,
-      height: 54,
+      height: 52,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(27),
+        borderRadius: BorderRadius.circular(14),
         gradient: const LinearGradient(
-          colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
+          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2563EB).withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -105,7 +126,7 @@ class ZentraTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(27)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: isLoading
             ? const SizedBox(
@@ -124,9 +145,9 @@ class ZentraTheme {
                     text,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 15.5,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 0.3,
+                      letterSpacing: 0.2,
                     ),
                   ),
                 ],
@@ -135,30 +156,36 @@ class ZentraTheme {
     );
   }
 
-  // Zentra Glass Card
+  // Dynamic Card Container (Adapts to Light / Dark Mode)
   static Widget buildGlassCard({
     required Widget child,
     EdgeInsetsGeometry padding = const EdgeInsets.all(20),
     Color? borderColor,
   }) {
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: surfaceCard.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: borderColor ?? surfaceBorder,
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, mode, _) {
+        final dark = mode == ThemeMode.dark;
+        return Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xFF0F172A) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: borderColor ?? (dark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (dark ? Colors.black : const Color(0xFF0F172A)).withValues(alpha: dark ? 0.4 : 0.06),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: child,
+          child: child,
+        );
+      },
     );
   }
 }

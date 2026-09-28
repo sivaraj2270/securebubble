@@ -5,7 +5,7 @@ import 'threat_intel_provider.dart';
 class VirusTotalAdapter implements ThreatIntelProvider {
   final String apiKey;
 
-  VirusTotalAdapter({this.apiKey = ''});
+  VirusTotalAdapter({this.apiKey = 'd87a41aa6e2b6a95f5764d2d416b9b32c69bc364177d54407b8b8ae8e48a1d7f'});
 
   @override
   String get providerName => 'VirusTotal API v3';

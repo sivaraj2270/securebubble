@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/scan_result.dart';
+import '../models/risk_result.dart';
 import '../widgets/risk_card.dart';
 import '../widgets/evidence_card.dart';
 import '../widgets/tool_status_card.dart';
 import 'forensics_screen.dart';
 import 'ai_assistant_screen.dart';
+import '../services/admin_service.dart';
+import '../services/blocklist_service.dart';
 
 class ScanResultScreen extends StatelessWidget {
   final ScanResult scanResult;
@@ -110,6 +113,121 @@ class ScanResultScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
+            const SizedBox(height: 24),
+
+            // Threat Action Panel (Phases 5.1 & 5.2 - Block Domain Integration)
+            if (scanResult.riskResult.score >= 60 || scanResult.riskResult.level == RiskLevel.high || scanResult.riskResult.level == RiskLevel.malicious) ...[
+              Builder(
+                builder: (context) {
+                  final targetDomain = scanResult.urlResult?.domain ?? scanResult.domainResult?.domain ?? scanResult.extractedText;
+                  final threatSummary = scanResult.aiRecommendation.isNotEmpty ? scanResult.aiRecommendation : scanResult.riskResult.levelLabel;
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E102F),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
+                            SizedBox(width: 8),
+                            Text(
+                              "MALICIOUS THREAT DETECTED",
+                              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Domain: ${targetDomain.isEmpty ? 'Target Domain' : targetDomain}",
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Risk Score: ${scanResult.riskResult.score}/100 • Threat: $threatSummary",
+                          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.block_rounded, size: 16, color: Colors.white),
+                                label: const Text("BLOCK DOMAIN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onPressed: () async {
+                                  if (targetDomain.isEmpty) return;
+
+                                  await BlocklistService.blockUrl(
+                                    targetDomain,
+                                    scanResult.riskResult.score,
+                                    "Blocked via Scan Result Screen",
+                                  );
+                                  await AdminService().blockDomain(
+                                    targetDomain,
+                                    reason: "Blocked via Scan Result Screen",
+                                  );
+
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text("🚫 '$targetDomain' blocked system-wide! Cannot open in mobile phone browsers."),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.description_rounded, size: 16, color: Colors.white),
+                                label: const Text("VIEW REPORT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFF8B5CF6)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => ForensicsScreen(scanResult: scanResult)),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFF4B5563)),
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("GO BACK", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+
+
+
             // Bottom Action Buttons
             Row(
               children: [
@@ -160,3 +278,4 @@ class ScanResultScreen extends StatelessWidget {
     );
   }
 }
+

@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../utils/page_routes.dart';
 import 'auth_gate.dart';
 import 'analytics_screen.dart';
+import 'admin_portal_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -132,6 +133,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFFA78BFA)),
                 onTap: () {
                   Navigator.push(context, SmoothPageRoute(page: const AnalyticsScreen()));
+                },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Admin Operations Portal Shortcut Tile
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF18102B),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.blueAccent.withOpacity(0.4)),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.admin_panel_settings_rounded, color: Colors.blueAccent, size: 26),
+                title: const Text("Admin Operations Portal", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                subtitle: const Text("Manage Threat Intelligence & System Engine", style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                trailing: const Icon(Icons.chevron_right_rounded, color: Colors.blueAccent),
+                onTap: () {
+                  Navigator.push(context, SmoothPageRoute(page: const AdminPortalScreen()));
                 },
               ),
             ),
