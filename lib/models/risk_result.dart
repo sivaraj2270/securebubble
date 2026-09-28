@@ -38,6 +38,21 @@ class RiskResult {
     }
   }
 
+  String get levelText {
+    switch (level) {
+      case RiskLevel.low:
+        return "SAFE";
+      case RiskLevel.suspicious:
+        return "SUSPICIOUS";
+      case RiskLevel.high:
+        return "HIGH RISK";
+      case RiskLevel.malicious:
+        return "DANGEROUS";
+      case RiskLevel.unknown:
+        return "UNKNOWN";
+    }
+  }
+
   Map<String, dynamic> toJson() => {
         'score': score,
         'level': levelLabel,
